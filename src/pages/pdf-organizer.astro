@@ -1,0 +1,173 @@
+---
+import ToolLayout from "../components/ToolLayout.astro";
+import PdfOrganizer from "../components/tools/PdfOrganizer.tsx";
+
+const title = "PDF page organizer — reorder & delete pages | convert.dcln.me";
+const description =
+  "Reorder or delete pages in a PDF with thumbnail previews. Runs entirely in your browser — your PDF is never uploaded. Free, open source, no signup.";
+
+const howToSchema = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "How to reorder and delete PDF pages in your browser",
+  description:
+    "Visually reorder or delete pages in a PDF using thumbnail previews, without uploading anything.",
+  step: [
+    {
+      "@type": "HowToStep",
+      position: 1,
+      name: "Choose your PDF",
+      text: "Drag a PDF in, or click 'Choose file'. Thumbnail previews are generated locally as you wait.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 2,
+      name: "Reorder or remove pages",
+      text: "Drag thumbnails to reorder, or click the × button on a page to remove it from the output. Use the arrow buttons for keyboard-friendly nudging.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 3,
+      name: "Save and download",
+      text: "Click 'Save & download'. Your browser writes a new PDF with the kept pages in the new order and offers it for download.",
+    },
+  ],
+};
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Is this really private? Does my PDF get uploaded?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No. The whole organizer runs in your browser. Your PDF is loaded into memory on your device, thumbnails are rendered locally by pdf.js, and the saved output is built by pdf-lib — all on your device. There is no upload step. Open your browser's network tab to confirm.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Why do thumbnails take a moment to appear?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Each thumbnail is rendered one page at a time in your browser. For a 200-page PDF this can take a few seconds — but the tool is fully usable before the thumbnails finish loading. You can drag, delete, and save even while thumbnails are still rendering.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Can I duplicate a page?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Not in this version. The tool currently lets you reorder and delete pages from a single source PDF. Duplicating pages and inserting pages from another PDF are planned enhancements.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What happens to bookmarks, links, and forms?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Page content (text, images, layout) is preserved exactly. Internal links that pointed to pages by absolute number will point at whatever now sits at that position in the new ordering — this is a known limitation of page-level rewriting in pdf-lib. Form fields and annotations on each page travel with the page.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does it work offline?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes, after the page has loaded once. All the libraries needed (pdf.js for previews, pdf-lib for output) are served from this site, so once cached you can disconnect and keep working.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does this support password-protected PDFs?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Not yet. Encrypted PDFs need the password to be unlocked first. You can unlock them in your PDF reader and re-save without a password, then organize.",
+      },
+    },
+  ],
+};
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Tools",
+      item: "https://convert.dcln.me/",
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "PDF page organizer",
+      item: "https://convert.dcln.me/pdf-organizer",
+    },
+  ],
+};
+---
+
+<ToolLayout title={title} description={description} schema={[howToSchema, faqSchema, breadcrumbSchema]}>
+  <section class="mx-auto max-w-4xl px-6 pt-12 sm:pt-16">
+    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-3 uppercase tracking-widest">
+      <a href="/" class="hover:text-[var(--color-fg)]">tools</a>
+      <span class="mx-2">/</span>
+      <span>pdf-organizer</span>
+    </p>
+    <h1 class="font-mono text-3xl sm:text-4xl font-semibold leading-tight">
+      Reorder and delete PDF pages.
+    </h1>
+    <p class="mt-4 text-lg text-[var(--color-fg-muted)] leading-relaxed">
+      Drag thumbnails to reorder, click × to delete. The whole thing runs in your browser — your PDF is never uploaded.
+    </p>
+  </section>
+
+  <section class="mx-auto max-w-4xl px-6 mt-10" aria-label="PDF organizer tool">
+    <PdfOrganizer client:load />
+  </section>
+
+  <section class="mx-auto max-w-4xl px-6 mt-16" aria-labelledby="how-heading">
+    <h2 id="how-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
+      How it works
+    </h2>
+    <ol class="space-y-4 text-[var(--color-fg-muted)]">
+      <li class="flex gap-4">
+        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">01</span>
+        <span>
+          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Choose your PDF.</strong>
+          Drag and drop, or pick a file. Thumbnails render in the background while you work.
+        </span>
+      </li>
+      <li class="flex gap-4">
+        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">02</span>
+        <span>
+          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Reorder or remove pages.</strong>
+          Drag thumbnails to a new spot, or click × to delete. Arrow buttons nudge a page one position at a time.
+        </span>
+      </li>
+      <li class="flex gap-4">
+        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">03</span>
+        <span>
+          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Save &amp; download.</strong>
+          A new PDF is written locally with the kept pages in your chosen order.
+        </span>
+      </li>
+    </ol>
+  </section>
+
+  <section class="mx-auto max-w-4xl px-6 mt-16 mb-12" aria-labelledby="faq-heading">
+    <h2 id="faq-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
+      FAQ
+    </h2>
+    <dl class="space-y-6">
+      {faqSchema.mainEntity.map((qa) => (
+        <div>
+          <dt class="font-mono text-base text-[var(--color-fg)] mb-2">{qa.name}</dt>
+          <dd class="text-[var(--color-fg-muted)] leading-relaxed">{qa.acceptedAnswer.text}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+</ToolLayout>

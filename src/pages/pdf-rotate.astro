@@ -1,0 +1,190 @@
+---
+import ToolLayout from "../components/ToolLayout.astro";
+import PdfRotator from "../components/tools/PdfRotator.tsx";
+
+const title = "Rotate PDF pages in your browser — free | convert.dcln.me";
+const description =
+  "Rotate every page in a PDF, or pick specific pages to rotate, 90°/180°/270°. Runs entirely in your browser — your PDF is never uploaded. Free, open source.";
+
+const howToSchema = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "How to rotate PDF pages in your browser",
+  description:
+    "Rotate PDF pages without uploading anything. Choose an angle and apply it to all pages or to a specific range.",
+  step: [
+    {
+      "@type": "HowToStep",
+      position: 1,
+      name: "Choose your PDF",
+      text: "Drag a PDF into the rotator, or click 'Choose file'. The page count loads instantly.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 2,
+      name: "Pick the rotation",
+      text: "Pick 90, 180, or 270 degrees clockwise. By default this applies to every page; type a range to limit which pages get rotated.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 3,
+      name: "Rotate and download",
+      text: "Click 'Rotate & download'. Your browser rewrites the rotation flag on the chosen pages and offers the result for download.",
+    },
+  ],
+};
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Is the rotation really private? Does my PDF get uploaded?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No. The rotation runs in your browser using a WebAssembly-based PDF library. The original PDF is loaded into memory on your device, the page rotation flag is updated, and the modified file is offered for download. There is no upload step — verify it yourself in your browser's network tab.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does this re-render the pages, or just flip a metadata flag?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Just the flag. PDFs carry a per-page rotation value (0, 90, 180, or 270 degrees). The rotator updates that value, so the file size stays roughly the same and there's no quality loss. PDF viewers respect the new rotation when displaying or printing the document.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Can I rotate different pages by different amounts in one pass?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Not in a single click — this tool applies one angle to the pages you select. To rotate different pages by different amounts, run the tool twice: first time, rotate the pages that need 90°; second time, rotate the pages that need 180°. The output of the first run becomes the input to the second.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What page range syntax does it accept?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Leave the field blank to rotate every page. Otherwise use commas to separate items. Each item is either a single page (5), a range (1-3), or open-ended (7- means from 7 to the end, -3 means pages 1 to 3).",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does it work offline?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes, after the page has loaded once. You can disconnect from the internet and the rotator keeps working — there are no network requests during the rotation itself.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does this support password-protected PDFs?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Not yet. Encrypted PDFs need the password to be unlocked first. You can unlock them in your PDF reader and re-save without a password, then rotate.",
+      },
+    },
+  ],
+};
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Tools",
+      item: "https://convert.dcln.me/",
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "PDF rotate",
+      item: "https://convert.dcln.me/pdf-rotate",
+    },
+  ],
+};
+---
+
+<ToolLayout title={title} description={description} schema={[howToSchema, faqSchema, breadcrumbSchema]}>
+  <section class="mx-auto max-w-3xl px-6 pt-12 sm:pt-16">
+    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-3 uppercase tracking-widest">
+      <a href="/" class="hover:text-[var(--color-fg)]">tools</a>
+      <span class="mx-2">/</span>
+      <span>pdf-rotate</span>
+    </p>
+    <h1 class="font-mono text-3xl sm:text-4xl font-semibold leading-tight">
+      Rotate PDF pages in your browser.
+    </h1>
+    <p class="mt-4 text-lg text-[var(--color-fg-muted)] leading-relaxed">
+      Flip a sideways scan upright, or rotate specific pages by 90°, 180°, or 270°. The whole thing runs on your device — your PDF is never uploaded.
+    </p>
+  </section>
+
+  <section class="mx-auto max-w-3xl px-6 mt-10" aria-label="PDF rotator tool">
+    <PdfRotator client:load />
+  </section>
+
+  <section class="mx-auto max-w-3xl px-6 mt-16" aria-labelledby="how-heading">
+    <h2 id="how-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
+      How it works
+    </h2>
+    <ol class="space-y-4 text-[var(--color-fg-muted)]">
+      <li class="flex gap-4">
+        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">01</span>
+        <span>
+          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Choose your PDF.</strong>
+          Drag and drop, or pick a file. The page count loads instantly.
+        </span>
+      </li>
+      <li class="flex gap-4">
+        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">02</span>
+        <span>
+          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Pick the angle.</strong>
+          90, 180, or 270 degrees clockwise. By default every page is rotated; type a range to limit it.
+        </span>
+      </li>
+      <li class="flex gap-4">
+        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">03</span>
+        <span>
+          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Rotate &amp; download.</strong>
+          A background thread in your browser updates the rotation flag for each chosen page and offers the modified PDF for download.
+        </span>
+      </li>
+    </ol>
+  </section>
+
+  <section class="mx-auto max-w-3xl px-6 mt-16" aria-labelledby="how-it-actually-works">
+    <h2 id="how-it-actually-works" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
+      How PDF rotation actually works
+    </h2>
+    <div class="space-y-4 text-[var(--color-fg-muted)] leading-relaxed">
+      <p>
+        Rotating a PDF page is not the same as rotating an image. Each page in a PDF has a <em>rotation</em> property — an integer (0, 90, 180, or 270) that tells viewers how to display it. The page contents themselves stay exactly the same. To rotate a page you don&rsquo;t resample any pixels or rewrite any drawing instructions; you just bump that number.
+      </p>
+      <p>
+        Because of that, the operation is essentially free in CPU and storage. The output file is the same size as the input, with one number changed per affected page. Quality is identical to the original — there is no loss.
+      </p>
+      <p>
+        This tool uses <a href="https://pdf-lib.js.org" rel="noopener noreferrer" target="_blank">pdf-lib</a> running in a <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API" rel="noopener noreferrer" target="_blank">Web Worker</a> to do the rewrite without blocking the page. No upload, no server, no account.
+      </p>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-3xl px-6 mt-16 mb-12" aria-labelledby="faq-heading">
+    <h2 id="faq-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
+      FAQ
+    </h2>
+    <dl class="space-y-6">
+      {faqSchema.mainEntity.map((qa) => (
+        <div>
+          <dt class="font-mono text-base text-[var(--color-fg)] mb-2">{qa.name}</dt>
+          <dd class="text-[var(--color-fg-muted)] leading-relaxed">{qa.acceptedAnswer.text}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+</ToolLayout>
