@@ -1,0 +1,158 @@
+---
+import ToolLayout from "../components/ToolLayout.astro";
+
+const tools = [
+  {
+    slug: "pdf-merger",
+    name: "PDF merger",
+    description: "Combine multiple PDFs into one. Drag to reorder, then download.",
+    status: "live",
+  },
+  {
+    slug: "heic-to-jpg",
+    name: "HEIC → JPG",
+    description: "Convert iPhone HEIC photos to JPG or PNG. Batch supported.",
+    status: "soon",
+  },
+  {
+    slug: "pdf-splitter",
+    name: "PDF splitter",
+    description: "Pull specific pages out of a PDF or split one PDF into many.",
+    status: "soon",
+  },
+  {
+    slug: "image-converter",
+    name: "Image converter",
+    description: "Convert between PNG, JPG, WebP, and AVIF.",
+    status: "soon",
+  },
+  {
+    slug: "favicon-generator",
+    name: "Favicon generator",
+    description: "One image in, a complete favicon bundle out.",
+    status: "soon",
+  },
+  {
+    slug: "csv-json-yaml",
+    name: "CSV ↔ JSON ↔ YAML",
+    description: "Convert between common data formats in either direction.",
+    status: "soon",
+  },
+];
+
+const schema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "convert.dcln.me",
+  url: "https://convert.dcln.me",
+  description:
+    "Free file conversion tools that run entirely in your browser. No uploads, no accounts, no ads.",
+};
+---
+
+<ToolLayout
+  title="convert.dcln.me — File tools that run in your browser. No uploads."
+  description="Free tools to merge PDFs, convert HEIC, split PDFs and more. Everything runs in your browser — files never leave your device. No accounts, no uploads, no ads."
+  schema={schema}
+>
+  <section class="mx-auto max-w-5xl px-6 pt-16 pb-12 sm:pt-24 sm:pb-16">
+    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-4 uppercase tracking-widest">
+      <span class="text-[var(--color-accent)]">●</span> live
+    </p>
+    <h1 class="font-mono text-3xl sm:text-5xl font-semibold leading-tight">
+      File tools that run in <span class="text-[var(--color-accent)]">your browser</span>.
+    </h1>
+    <p class="mt-6 max-w-2xl text-lg text-[var(--color-fg-muted)] leading-relaxed">
+      No uploads. No accounts. No ads. No tracking. Open source.
+      Every conversion runs entirely on your device — your files never touch a server.
+    </p>
+
+    <div class="mt-8 flex flex-wrap items-center gap-3 text-xs font-mono text-[var(--color-fg-muted)]">
+      <span class="px-2 py-1 border border-[var(--color-border)] rounded-md">no upload</span>
+      <span class="px-2 py-1 border border-[var(--color-border)] rounded-md">no signup</span>
+      <span class="px-2 py-1 border border-[var(--color-border)] rounded-md">no cookies</span>
+      <span class="px-2 py-1 border border-[var(--color-border)] rounded-md">MIT licensed</span>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-5xl px-6 pb-20" aria-labelledby="tools-heading">
+    <h2 id="tools-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-6">
+      Tools
+    </h2>
+    <ul class="grid gap-3 sm:grid-cols-2">
+      {tools.map((tool) => (
+        tool.status === "live" ? (
+          <li>
+            <a
+              href={`/${tool.slug}`}
+              class="group block p-5 border border-[var(--color-border)] rounded-md bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-2)] transition-colors"
+            >
+              <div class="flex items-baseline justify-between mb-2">
+                <h3 class="font-mono text-base font-semibold text-[var(--color-fg)]">
+                  {tool.name}
+                </h3>
+                <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-accent)]">
+                  live
+                </span>
+              </div>
+              <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
+                {tool.description}
+              </p>
+              <p class="mt-3 font-mono text-xs text-[var(--color-fg-dim)] group-hover:text-[var(--color-accent)]">
+                open →
+              </p>
+            </a>
+          </li>
+        ) : (
+          <li>
+            <div
+              class="block p-5 border border-dashed border-[var(--color-border)] rounded-md opacity-60 cursor-not-allowed"
+              aria-disabled="true"
+            >
+              <div class="flex items-baseline justify-between mb-2">
+                <h3 class="font-mono text-base font-semibold text-[var(--color-fg-muted)]">
+                  {tool.name}
+                </h3>
+                <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-fg-dim)]">
+                  soon
+                </span>
+              </div>
+              <p class="text-sm text-[var(--color-fg-dim)] leading-relaxed">
+                {tool.description}
+              </p>
+            </div>
+          </li>
+        )
+      ))}
+    </ul>
+  </section>
+
+  <section class="mx-auto max-w-5xl px-6 pb-24" aria-labelledby="how-heading">
+    <h2 id="how-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-6">
+      How this site works
+    </h2>
+    <div class="grid gap-6 sm:grid-cols-3 text-sm text-[var(--color-fg-muted)]">
+      <div>
+        <p class="font-mono text-[var(--color-accent)] text-xs mb-2">01</p>
+        <h3 class="font-mono text-base text-[var(--color-fg)] mb-2">Pick a tool.</h3>
+        <p class="leading-relaxed">
+          Each tool lives at its own URL. Bookmark the ones you use.
+        </p>
+      </div>
+      <div>
+        <p class="font-mono text-[var(--color-accent)] text-xs mb-2">02</p>
+        <h3 class="font-mono text-base text-[var(--color-fg)] mb-2">Pick your files.</h3>
+        <p class="leading-relaxed">
+          Drag and drop or click to choose. Files stay on your device the whole time.
+        </p>
+      </div>
+      <div>
+        <p class="font-mono text-[var(--color-accent)] text-xs mb-2">03</p>
+        <h3 class="font-mono text-base text-[var(--color-fg)] mb-2">Download the result.</h3>
+        <p class="leading-relaxed">
+          Conversion happens in a background thread in your browser. You get a file back. That&rsquo;s it.
+        </p>
+      </div>
+    </div>
+  </section>
+</ToolLayout>

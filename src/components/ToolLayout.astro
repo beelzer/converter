@@ -1,0 +1,115 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description: string;
+  canonicalPath?: string;
+  ogImage?: string;
+  schema?: object | object[];
+}
+
+const { title, description, canonicalPath, ogImage, schema } = Astro.props;
+const siteUrl = "https://convert.dcln.me";
+const canonical = canonicalPath ? new URL(canonicalPath, siteUrl).toString() : new URL(Astro.url.pathname, siteUrl).toString();
+const image = ogImage ?? `${siteUrl}/og-default.png`;
+const schemaArray = schema ? (Array.isArray(schema) ? schema : [schema]) : [];
+
+// Cloudflare Web Analytics beacon token — populated after the project is created in the CF dashboard.
+const cfBeaconToken = import.meta.env.PUBLIC_CF_BEACON_TOKEN;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={image} />
+    <meta property="og:site_name" content="convert.dcln.me" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={image} />
+
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="color-scheme" content="dark" />
+
+    {schemaArray.map((s) => (
+      <script type="application/ld+json" set:html={JSON.stringify(s)} />
+    ))}
+  </head>
+
+  <body class="min-h-dvh flex flex-col">
+    <header class="border-b border-[var(--color-border)]">
+      <div class="mx-auto max-w-5xl px-6 py-4 flex items-center justify-between">
+        <a
+          href="/"
+          class="font-mono text-sm sm:text-base font-semibold text-[var(--color-fg)] hover:no-underline"
+          aria-label="convert.dcln.me home"
+        >
+          <span class="text-[var(--color-accent)]">{"{ }"}</span>
+          <span class="ml-2">convert.dcln.me</span>
+        </a>
+        <nav class="flex items-center gap-5 text-sm font-mono text-[var(--color-fg-muted)]">
+          <a href="/" class="hover:text-[var(--color-fg)]">tools</a>
+          <a href="/about" class="hover:text-[var(--color-fg)]">about</a>
+          <a
+            href="https://github.com/beelzer/converter"
+            rel="noopener noreferrer"
+            target="_blank"
+            class="hover:text-[var(--color-fg)]"
+          >
+            github
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="flex-1">
+      <slot />
+    </main>
+
+    <footer class="border-t border-[var(--color-border)] mt-16">
+      <div class="mx-auto max-w-5xl px-6 py-8 grid gap-4 sm:grid-cols-2 text-sm text-[var(--color-fg-muted)] font-mono">
+        <div>
+          <p class="text-[var(--color-fg)]">
+            <span class="text-[var(--color-accent)]">●</span> Files never leave your browser.
+          </p>
+          <p class="mt-1">
+            No uploads. No accounts. No ads. No cookies.
+          </p>
+        </div>
+        <div class="sm:text-right">
+          <a href="https://github.com/beelzer/converter" rel="noopener noreferrer" target="_blank">
+            Source on GitHub
+          </a>
+          <span class="mx-2 text-[var(--color-fg-dim)]">·</span>
+          <a href="/about">about</a>
+          <span class="mx-2 text-[var(--color-fg-dim)]">·</span>
+          <span>MIT</span>
+        </div>
+      </div>
+    </footer>
+
+    {cfBeaconToken && (
+      <script
+        defer
+        src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon={`{"token": "${cfBeaconToken}"}`}
+      />
+    )}
+  </body>
+</html>

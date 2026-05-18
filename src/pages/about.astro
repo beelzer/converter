@@ -1,0 +1,59 @@
+---
+import ToolLayout from "../components/ToolLayout.astro";
+---
+
+<ToolLayout
+  title="About convert.dcln.me — File tools that run in your browser"
+  description="A small collection of free file conversion tools that run entirely in your browser. No uploads, no accounts, no ads, no tracking. Open source under MIT."
+>
+  <section class="mx-auto max-w-2xl px-6 pt-12 sm:pt-16 pb-16">
+    <h1 class="font-mono text-3xl sm:text-4xl font-semibold leading-tight mb-6">
+      About
+    </h1>
+
+    <div class="space-y-5 text-[var(--color-fg-muted)] leading-relaxed">
+      <p>
+        <span class="text-[var(--color-fg)]">convert.dcln.me</span> is a small collection of file conversion tools.
+        The defining property: every tool runs entirely in your browser. Your files are never uploaded to any server.
+      </p>
+
+      <p>
+        Most online converters work by uploading your file to a server, processing it there, and offering you the result.
+        That works, but it means your file briefly lives on someone else&rsquo;s machine. The privacy promises are typically
+        &ldquo;we delete it after an hour&rdquo; — not &ldquo;we never had it.&rdquo;
+      </p>
+
+      <p>
+        Modern browsers can do a lot of work locally. WebAssembly and well-built JavaScript libraries can merge PDFs,
+        convert image formats, extract data, and more — all on your device, with the kind of performance that used to
+        require a server. So that&rsquo;s what these tools do.
+      </p>
+
+      <h2 class="font-mono text-base text-[var(--color-fg)] pt-4">What this site doesn&rsquo;t do</h2>
+      <ul class="list-none space-y-1.5 pl-0">
+        <li><span class="text-[var(--color-accent)] font-mono mr-2">×</span>No uploads. Files stay on your device.</li>
+        <li><span class="text-[var(--color-accent)] font-mono mr-2">×</span>No accounts. Nothing to sign up for.</li>
+        <li><span class="text-[var(--color-accent)] font-mono mr-2">×</span>No ads. Not now, not later.</li>
+        <li><span class="text-[var(--color-accent)] font-mono mr-2">×</span>No cookies. No banner to dismiss.</li>
+        <li><span class="text-[var(--color-accent)] font-mono mr-2">×</span>No tracking. Analytics is privacy-respecting and counts pageviews only.</li>
+      </ul>
+
+      <h2 class="font-mono text-base text-[var(--color-fg)] pt-4">How to verify the no-upload claim</h2>
+      <p>
+        Open your browser&rsquo;s developer tools (usually F12), switch to the Network tab, and clear it. Then pick your files and run the conversion.
+        You&rsquo;ll see no requests fire when the work actually happens. You can also disconnect your wifi after the page has loaded — the tools keep working.
+      </p>
+
+      <h2 class="font-mono text-base text-[var(--color-fg)] pt-4">Open source</h2>
+      <p>
+        The full source is on GitHub at <a href="https://github.com/beelzer/converter" rel="noopener noreferrer" target="_blank">github.com/beelzer/converter</a>
+        under the MIT license. Fork it, host your own copy, or audit the code yourself.
+      </p>
+
+      <h2 class="font-mono text-base text-[var(--color-fg)] pt-4">Tech stack</h2>
+      <p class="font-mono text-sm">
+        Astro · Preact · Tailwind · pdf-lib · Cloudflare Workers · R2
+      </p>
+    </div>
+  </section>
+</ToolLayout>
