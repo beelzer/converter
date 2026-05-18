@@ -21,6 +21,13 @@ pnpm-debug.log*
 # wrangler
 .wrangler/
 
+# Playwright
+playwright-report/
+test-results/
+
+# Lighthouse CI (local runs only — CI publishes to temporary-public-storage)
+.lighthouseci/
+
 # macOS-specific files
 .DS_Store
 
