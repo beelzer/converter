@@ -26,7 +26,9 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@tailwindcss/vite": "^4.3.0",
     "astro": "^6.3.3",
+    "fflate": "^0.8.3",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.7.284",
     "preact": "^10.29.2",
     "tailwindcss": "^4.3.0"
   },
