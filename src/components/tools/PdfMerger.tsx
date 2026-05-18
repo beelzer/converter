@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import FileDropZone from "../shared/FileDropZone";
+import { downloadBlob, formatSize, newId } from "../../lib/util/file";
 import type { MergeRequest, MergeResponse } from "../../lib/pdf/merge.worker";
 
 interface QueuedFile {
@@ -16,22 +18,10 @@ type Status =
   | { kind: "done"; pageCount: number; filename: string }
   | { kind: "error"; message: string };
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function newId(): string {
-  return Math.random().toString(36).slice(2, 10);
-}
-
 export default function PdfMerger() {
   const [files, setFiles] = useState<QueuedFile[]>([]);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
-  const [dragOver, setDragOver] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const requestIdRef = useRef(0);
 
@@ -71,30 +61,6 @@ export default function PdfMerger() {
     setStatus({ kind: "idle" });
     setFiles((current: QueuedFile[]) => [...current, ...pdfs]);
   }, []);
-
-  const onFileInput = (event: Event) => {
-    const target = event.currentTarget as HTMLInputElement;
-    if (target.files && target.files.length > 0) {
-      acceptFiles(target.files);
-    }
-    target.value = "";
-  };
-
-  const onDropZoneDrop = (event: DragEvent) => {
-    event.preventDefault();
-    setDragOver(false);
-    if (event.dataTransfer?.files) {
-      acceptFiles(event.dataTransfer.files);
-    }
-  };
-
-  const onDropZoneDragOver = (event: DragEvent) => {
-    event.preventDefault();
-    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
-    setDragOver(true);
-  };
-
-  const onDropZoneDragLeave = () => setDragOver(false);
 
   const move = (from: number, to: number) => {
     setFiles((current: QueuedFile[]) => {
@@ -150,7 +116,7 @@ export default function PdfMerger() {
         return;
       }
 
-      downloadBlob(result.bytes, filename);
+      downloadBlob(result.bytes, filename, "application/pdf");
       setStatus({ kind: "done", pageCount: result.pageCount, filename });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -185,42 +151,14 @@ export default function PdfMerger() {
 
   return (
     <div class="w-full">
-      <div
-        onDrop={onDropZoneDrop}
-        onDragOver={onDropZoneDragOver}
-        onDragLeave={onDropZoneDragLeave}
-        class={`relative border-2 border-dashed rounded-lg p-8 sm:p-10 text-center transition-colors ${
-          dragOver
-            ? "border-[var(--color-accent)] bg-[var(--color-surface-2)]"
-            : "border-[var(--color-border)] bg-[var(--color-surface)]"
-        }`}
-      >
-        <p class="font-mono text-base text-[var(--color-fg)]">
-          Drop PDFs here
-        </p>
-        <p class="mt-1 text-sm text-[var(--color-fg-muted)]">
-          or
-        </p>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          class="mt-3 inline-flex items-center font-mono text-sm px-4 py-2 rounded-md border border-[var(--color-border)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] focus-visible:border-[var(--color-accent)] transition-colors"
-        >
-          Choose files
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/pdf,.pdf"
-          multiple
-          onChange={onFileInput}
-          class="sr-only"
-          aria-label="Choose PDF files to merge"
-        />
-        <p class="mt-4 text-xs font-mono text-[var(--color-fg-dim)]">
-          <span class="text-[var(--color-accent)]">●</span> Stays on your device. Nothing is uploaded.
-        </p>
-      </div>
+      <FileDropZone
+        label="Drop PDFs here"
+        buttonLabel="Choose files"
+        accept="application/pdf,.pdf"
+        multiple
+        inputAriaLabel="Choose PDF files to merge"
+        onFiles={acceptFiles}
+      />
 
       {files.length > 0 && (
         <div class="mt-6">
@@ -366,16 +304,4 @@ function deriveFilename(files: QueuedFile[]): string {
   if (files.length === 0) return "merged.pdf";
   const first = files[0].name.replace(/\.pdf$/i, "");
   return `${first}-merged.pdf`;
-}
-
-function downloadBlob(bytes: Uint8Array, filename: string): void {
-  const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
