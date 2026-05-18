@@ -3,63 +3,31 @@ import ToolLayout from "../components/ToolLayout.astro";
 
 const tools = [
   {
-    slug: "pdf-merger",
-    name: "PDF merger",
-    description: "Combine multiple PDFs into one. Drag to reorder, then download.",
+    slug: "pdf",
+    name: "PDF",
+    description:
+      "Merge, split, rotate, reorganize, convert to images, or build a PDF from images — all in one tool.",
     status: "live",
   },
   {
-    slug: "heic-to-jpg",
-    name: "HEIC → JPG",
-    description: "Convert iPhone HEIC photos to JPG or PNG. Batch supported.",
+    slug: "image",
+    name: "Image",
+    description:
+      "Convert between JPG, PNG, WebP, AVIF, HEIC and more. Resize, compress, strip EXIF, build favicons, rasterize SVG.",
+    status: "live",
+  },
+  {
+    slug: "data",
+    name: "Data",
+    description:
+      "Convert between CSV, JSON, YAML, XML, TOML and Excel. Format, validate, generate types.",
     status: "soon",
   },
   {
-    slug: "pdf-splitter",
-    name: "PDF splitter",
-    description: "Pull specific pages out of a PDF and download them as a new file.",
-    status: "live",
-  },
-  {
-    slug: "pdf-rotate",
-    name: "PDF rotate",
-    description: "Rotate every page in a PDF, or just the ones you pick, by 90°/180°/270°.",
-    status: "live",
-  },
-  {
-    slug: "pdf-organizer",
-    name: "PDF page organizer",
-    description: "Reorder or delete pages in a PDF with thumbnail previews.",
-    status: "live",
-  },
-  {
-    slug: "images-to-pdf",
-    name: "Images → PDF",
-    description: "Combine JPG, PNG, WebP, GIF, or BMP images into a single PDF.",
-    status: "live",
-  },
-  {
-    slug: "pdf-to-jpg",
-    name: "PDF → JPG / PNG",
-    description: "Render each page of a PDF as a JPG or PNG image. Multi-page outputs come as a ZIP.",
-    status: "live",
-  },
-  {
-    slug: "image-converter",
-    name: "Image converter",
-    description: "Convert between PNG, JPG, WebP, and AVIF.",
-    status: "soon",
-  },
-  {
-    slug: "favicon-generator",
-    name: "Favicon generator",
-    description: "One image in, a complete favicon bundle out.",
-    status: "soon",
-  },
-  {
-    slug: "csv-json-yaml",
-    name: "CSV ↔ JSON ↔ YAML",
-    description: "Convert between common data formats in either direction.",
+    slug: "audio-video",
+    name: "Audio / Video",
+    description:
+      "Convert audio and video formats locally using WebCodecs. Trim, compress, extract audio from video.",
     status: "soon",
   },
 ];
@@ -76,7 +44,7 @@ const schema = {
 
 <ToolLayout
   title="convert.dcln.me — File tools that run in your browser. No uploads."
-  description="Free tools to merge PDFs, convert HEIC, split PDFs and more. Everything runs in your browser — files never leave your device. No accounts, no uploads, no ads."
+  description="Free tools to convert and edit PDFs, images, data files, and more. Everything runs in your browser — files never leave your device. No accounts, no uploads, no ads."
   schema={schema}
 >
   <section class="mx-auto max-w-5xl px-6 pt-16 pb-12 sm:pt-24 sm:pb-16">
