@@ -14,9 +14,6 @@ const siteUrl = "https://convert.dcln.me";
 const canonical = canonicalPath ? new URL(canonicalPath, siteUrl).toString() : new URL(Astro.url.pathname, siteUrl).toString();
 const image = ogImage ?? `${siteUrl}/og-default.png`;
 const schemaArray = schema ? (Array.isArray(schema) ? schema : [schema]) : [];
-
-// Cloudflare Web Analytics beacon token — populated after the project is created in the CF dashboard.
-const cfBeaconToken = import.meta.env.PUBLIC_CF_BEACON_TOKEN;
 ---
 
 <!doctype html>
@@ -104,12 +101,6 @@ const cfBeaconToken = import.meta.env.PUBLIC_CF_BEACON_TOKEN;
       </div>
     </footer>
 
-    {cfBeaconToken && (
-      <script
-        defer
-        src="https://static.cloudflareinsights.com/beacon.min.js"
-        data-cf-beacon={`{"token": "${cfBeaconToken}"}`}
-      />
-    )}
+    {/* Cloudflare Web Analytics beacon is injected automatically at the edge via Automatic Setup. */}
   </body>
 </html>
