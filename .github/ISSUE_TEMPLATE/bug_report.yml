@@ -1,0 +1,70 @@
+name: Bug Report
+description: Report something that isn't working correctly
+labels: ['bug']
+assignees: ['beelzer']
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? Be as specific as you can.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: How can this be reproduced?
+      placeholder: |
+        1. Go to /pdf-merger
+        2. Drop files X and Y
+        3. Click merge
+        4. See error
+    validations:
+      required: true
+
+  - type: dropdown
+    id: tool
+    attributes:
+      label: Which tool?
+      description: Which tool page is affected?
+      options:
+        - PDF merger (/pdf-merger)
+        - Homepage (/)
+        - About (/about)
+        - Other / not tool-specific
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      description: Which browser(s) did you see this in?
+      multiple: true
+      options:
+        - Chrome
+        - Firefox
+        - Safari (desktop)
+        - Safari (iOS)
+        - Edge
+        - Other
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, error messages, console output, file sizes, or anything else.
+    validations:
+      required: false
