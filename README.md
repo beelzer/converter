@@ -93,6 +93,26 @@ Each tool follows this exact pattern. It's mechanical.
 - "Files never leave your browser" copy visible above the fold.
 - No third-party scripts beyond Cloudflare Web Analytics. No cookie banner.
 
+## Commit convention
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/). Every commit and PR title must follow the pattern:
+
+```text
+type(optional-scope): short description
+```
+
+**Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `ci`, `chore`, `test`, `build`, `revert`.
+
+For new tools (the dominant change here), use the tool slug as the scope:
+
+```text
+feat(heic-to-jpg): initial implementation
+fix(pdf-merger): handle password-protected PDFs gracefully
+ci: bump lighthouse threshold to error-level 0.95
+```
+
+`commitlint` validates commits on every PR via the `Commit Messages` job in `.github/workflows/ci.yml`. Past commits made before this convention was added are not retroactively validated.
+
 ## License
 
 MIT. See [LICENSE](./LICENSE).
