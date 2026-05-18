@@ -14,6 +14,10 @@ const siteUrl = "https://convert.dcln.me";
 const canonical = canonicalPath ? new URL(canonicalPath, siteUrl).toString() : new URL(Astro.url.pathname, siteUrl).toString();
 const image = ogImage ?? `${siteUrl}/og-default.png`;
 const schemaArray = schema ? (Array.isArray(schema) ? schema : [schema]) : [];
+
+// Cloudflare Web Analytics beacon token — public, ships in every HTML response.
+// Forkers: replace with your own token from dash.cloudflare.com → Web Analytics.
+const CF_BEACON_TOKEN = "71a3ecfaa07f456f8516ad6b2c3e225c";
 ---
 
 <!doctype html>
@@ -101,6 +105,11 @@ const schemaArray = schema ? (Array.isArray(schema) ? schema : [schema]) : [];
       </div>
     </footer>
 
-    {/* Cloudflare Web Analytics beacon is injected automatically at the edge via Automatic Setup. */}
+    <script
+      defer
+      is:inline
+      src="https://static.cloudflareinsights.com/beacon.min.js"
+      data-cf-beacon={`{"token": "${CF_BEACON_TOKEN}"}`}
+    />
   </body>
 </html>
