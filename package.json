@@ -13,6 +13,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
+    "check": "astro check",
     "deploy": "astro build && wrangler deploy"
   },
   "dependencies": {
@@ -26,5 +27,9 @@
     "pdf-lib": "^1.17.1",
     "preact": "^10.29.2",
     "tailwindcss": "^4.3.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "typescript": "^6.0.3"
   }
 }

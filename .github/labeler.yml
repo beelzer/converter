@@ -1,0 +1,46 @@
+style:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/styles/**'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+          - 'lighthouserc.cjs'
+
+pages:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/pages/**'
+
+component:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/components/**'
+
+lib:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/lib/**'
+
+tool:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/lib/**'
+          - 'src/components/tools/**'
+
+config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '*.config.*'
+          - 'astro.config.mjs'
+          - 'wrangler.toml'
+          - 'package.json'
+          - 'tsconfig.json'
+
+security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'public/_headers'
+          - '.github/SECURITY.md'

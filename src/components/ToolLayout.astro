@@ -49,7 +49,7 @@ const CF_BEACON_TOKEN = "71a3ecfaa07f456f8516ad6b2c3e225c";
     <meta name="color-scheme" content="dark" />
 
     {schemaArray.map((s) => (
-      <script type="application/ld+json" set:html={JSON.stringify(s)} />
+      <script is:inline type="application/ld+json" set:html={JSON.stringify(s)} />
     ))}
   </head>
 

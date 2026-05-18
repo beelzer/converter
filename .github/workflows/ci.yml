@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run check
+
+  build:
+    name: Build
+    needs: [typecheck]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: build-output
+          path: dist/
+          retention-days: 1
+
+  lighthouse:
+    name: Lighthouse
+    needs: [build]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: build-output
+          path: dist/
+
+      - uses: treosh/lighthouse-ci-action@v12
+        id: lhci
+        with:
+          configPath: lighthouserc.cjs
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+      - name: Post Lighthouse comment
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+
+            const badge = (score) => {
+              if (score === null || score === undefined) return '`N/A`';
+              const v = Math.round(score * 100);
+              if (v >= 90) return `\`🟢 ${v}\``;
+              if (v >= 50) return `\`🟠 ${v}\``;
+              return `\`🔴 ${v}\``;
+            };
+
+            const ms = (value) => {
+              if (value === undefined) return '—';
+              return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${Math.round(value)}ms`;
+            };
+
+            const manifest = JSON.parse(fs.readFileSync('.lighthouseci/manifest.json', 'utf8'));
+            const links = JSON.parse('${{ steps.lhci.outputs.links }}');
+
+            let rows = '';
+            for (const entry of manifest) {
+              const url = new URL(entry.url).pathname;
+              const s = entry.summary;
+              const reportUrl = links[entry.url] || '';
+              const page = `[${url}](${reportUrl})`;
+
+              const lhr = JSON.parse(fs.readFileSync(entry.jsonPath, 'utf8'));
+              const a = lhr.audits;
+              const fcp = ms(a['first-contentful-paint']?.numericValue);
+              const lcp = ms(a['largest-contentful-paint']?.numericValue);
+              const tbt = ms(a['total-blocking-time']?.numericValue);
+              const cls = a['cumulative-layout-shift']?.numericValue?.toFixed(3) ?? '—';
+
+              rows += `| ${page} | ${badge(s.performance)} | ${badge(s.accessibility)} | ${badge(s['best-practices'])} | ${badge(s.seo)} | ${fcp} | ${lcp} | ${tbt} | ${cls} |\n`;
+            }
+
+            const body = `## Lighthouse Report
+
+            | Page | Performance | Accessibility | Best Practices | SEO | FCP | LCP | TBT | CLS |
+            |------|:-----------:|:-------------:|:--------------:|:---:|:---:|:---:|:---:|:---:|
+            ${rows}`.replace(/^            /gm, '');
+
+            const marker = '## Lighthouse Report';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
