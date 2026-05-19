@@ -1,0 +1,124 @@
+---
+import ToolLayout from "../components/ToolLayout.astro";
+import ArchiveHub from "../components/tools/ArchiveHub.tsx";
+
+const title = "Archive tools — create / extract ZIP, TAR, GZIP, RAR | tools.dcln.me";
+const description =
+  "Create or extract archives entirely in your browser. ZIP, TAR, TAR.GZ, GZIP and RAR (read-only). No upload, no server. Format auto-detected from magic bytes.";
+
+const howToSchema = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "How to create and extract archives in your browser",
+  step: [
+    {
+      "@type": "HowToStep",
+      position: 1,
+      name: "Pick a mode",
+      text: "Choose Create to bundle files together, or Extract to read an existing archive.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 2,
+      name: "Drop your files",
+      text: "For Create: drop one or more files and pick a format. For Extract: drop a ZIP/TAR/GZIP/RAR — the format is auto-detected.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 3,
+      name: "Download",
+      text: "Create downloads the bundle. Extract lets you grab individual entries or everything together as a fresh ZIP.",
+    },
+  ],
+};
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Why no 7-Zip support?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "The smallest working in-browser 7z library is a ~1.5 MB WebAssembly build under LGPL, which we can use but would need to disclose. For v1 we'd rather ship without it and add it later if traffic warrants — most archives in the wild are ZIP or RAR, and 7z extraction has good native support in every OS.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Why can I extract RAR but not create it?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "The RAR format is proprietary. WinRAR licenses the decompressor freely (used by node-unrar-js) but not the compressor — there is no open-source RAR writer, anywhere. ZIP and TAR are free and unencumbered, so use one of those for new archives.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Are large archives handled well?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "We load and process the entire archive in memory using fflate, which is fast but caps practically at around 1 GB depending on your browser. For multi-GB tarballs, use a desktop tool. (We may add streaming extraction later if traffic justifies the complexity.)",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What's the difference between TAR.GZ and ZIP?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Both are containers with compression. ZIP compresses each file independently and stores a directory at the end (random-access friendly). TAR.GZ wraps every file in a TAR archive then gzips the whole thing as one stream — usually a little smaller for many small files, but you must decompress the whole thing to read any one entry. Unix tooling defaults to TAR.GZ; Windows defaults to ZIP.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Is any of this uploaded?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No. fflate is pure JavaScript, RAR extraction uses a WebAssembly build of unrar that runs locally. Open the network tab while you create or extract — nothing leaves your device.",
+      },
+    },
+  ],
+};
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Tools", item: "https://tools.dcln.me/" },
+    { "@type": "ListItem", position: 2, name: "Archive", item: "https://tools.dcln.me/archive" },
+  ],
+};
+---
+
+<ToolLayout title={title} description={description} schema={[howToSchema, faqSchema, breadcrumbSchema]}>
+  <section class="mx-auto max-w-5xl px-6 pt-12 sm:pt-16">
+    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-3 uppercase tracking-widest">
+      <a href="/" class="hover:text-[var(--color-fg)]">tools</a>
+      <span class="mx-2">/</span>
+      <span>archive</span>
+    </p>
+    <h1 class="font-mono text-3xl sm:text-4xl font-semibold leading-tight">
+      Archive tools.
+    </h1>
+    <p class="mt-4 text-lg text-[var(--color-fg-muted)] leading-relaxed">
+      Create ZIP, TAR, TAR.GZ or GZIP archives, or extract any of those plus RAR — entirely in your browser. Files never touch a server.
+    </p>
+  </section>
+
+  <section class="mx-auto max-w-5xl px-6 mt-10" aria-label="Archive toolkit">
+    <ArchiveHub client:load />
+  </section>
+
+  <section class="mx-auto max-w-5xl px-6 mt-16 mb-12" aria-labelledby="faq-heading">
+    <h2 id="faq-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
+      FAQ
+    </h2>
+    <dl class="space-y-6">
+      {faqSchema.mainEntity.map((qa) => (
+        <div>
+          <dt class="font-mono text-base text-[var(--color-fg)] mb-2">{qa.name}</dt>
+          <dd class="text-[var(--color-fg-muted)] leading-relaxed">{qa.acceptedAnswer.text}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+</ToolLayout>
