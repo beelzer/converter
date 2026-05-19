@@ -1,0 +1,116 @@
+---
+import ToolLayout from "../components/ToolLayout.astro";
+import EncodeHub from "../components/tools/EncodeHub.tsx";
+
+const title = "Encoding tools — Base64, URL, JWT decoder, hash | tools.dcln.me";
+const description =
+  "Base64 encode/decode (text or file, standard or URL-safe). URL encode/decode. JWT decoder. SHA-1 / SHA-256 / SHA-384 / SHA-512 hashes via WebCrypto. Everything runs locally.";
+
+const howToSchema = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "How to encode, decode, and hash in your browser",
+  step: [
+    {
+      "@type": "HowToStep",
+      position: 1,
+      name: "Pick a mode",
+      text: "Choose a tab: Base64, URL, JWT, or Hash.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 2,
+      name: "Type, paste, or pick a file",
+      text: "Most modes update live as you type. Hash and Base64 also accept files.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 3,
+      name: "Copy the output",
+      text: "Every result has a one-click copy button. Nothing leaves your machine.",
+    },
+  ],
+};
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Is the JWT decoder safe to paste production tokens into?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes. The decoder runs in your browser — there is no network request. You can verify by opening the network tab and pasting a token. That said: rotating a token you've shared anywhere (including a debugger) is always good hygiene. The decoder does NOT verify the signature, so it can't tell you if a token is valid, only what it claims.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Why is MD5 missing?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "MD5 isn't part of WebCrypto's SubtleCrypto API because it's been cryptographically broken for over a decade. Adding it back via a JS polyfill would just legitimize that brokenness. If you need an MD5 for a non-security purpose (e.g. matching an existing checksum), use a CLI tool — the system has md5sum, openssl, certutil, etc.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What does URL-safe Base64 mean?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Standard Base64 uses + and / which have special meaning in URLs (and = padding can trip up some parsers). URL-safe Base64 swaps + → -, / → _, and drops trailing =. It's what JWTs use. The decoder accepts either variant.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Are large files handled efficiently?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Hashing reads the file into memory and hands the bytes to SubtleCrypto, which is hardware-accelerated. Base64 of a large binary file does a JS-side string build — fine up to a few hundred MB, slower beyond. For multi-GB files, use a CLI tool.",
+      },
+    },
+  ],
+};
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Tools", item: "https://tools.dcln.me/" },
+    { "@type": "ListItem", position: 2, name: "Encode", item: "https://tools.dcln.me/encode" },
+  ],
+};
+---
+
+<ToolLayout title={title} description={description} schema={[howToSchema, faqSchema, breadcrumbSchema]}>
+  <section class="mx-auto max-w-5xl px-6 pt-12 sm:pt-16">
+    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-3 uppercase tracking-widest">
+      <a href="/" class="hover:text-[var(--color-fg)]">tools</a>
+      <span class="mx-2">/</span>
+      <span>encode</span>
+    </p>
+    <h1 class="font-mono text-3xl sm:text-4xl font-semibold leading-tight">
+      Encoding tools.
+    </h1>
+    <p class="mt-4 text-lg text-[var(--color-fg-muted)] leading-relaxed">
+      Base64, URL encoding, JWT inspection, SHA hashes. All native, all local — no WASM blob, no third-party libraries, no server. Even your JWT secrets stay in the browser.
+    </p>
+  </section>
+
+  <section class="mx-auto max-w-5xl px-6 mt-10" aria-label="Encoding toolkit">
+    <EncodeHub client:load />
+  </section>
+
+  <section class="mx-auto max-w-5xl px-6 mt-16 mb-12" aria-labelledby="faq-heading">
+    <h2 id="faq-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
+      FAQ
+    </h2>
+    <dl class="space-y-6">
+      {faqSchema.mainEntity.map((qa) => (
+        <div>
+          <dt class="font-mono text-base text-[var(--color-fg)] mb-2">{qa.name}</dt>
+          <dd class="text-[var(--color-fg-muted)] leading-relaxed">{qa.acceptedAnswer.text}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+</ToolLayout>
