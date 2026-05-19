@@ -17,18 +17,25 @@ runs offline.
 
 ## Resolutions
 
-| Fixture | Resolution | Use |
+| Fixture | Resolution | Notes |
 |---|---|---|
-| `av/clip.mp4` / `clip.webm` | 320 × 180 | Fast smoke / pipeline tests. The bulk of the AV suite uses these. |
-| `av/clip-720p.mp4` | 1280 × 720 (HD) | Dedicated HD-pipeline test (Convert MP4 → WebM). |
-| `av/clip-1080p.mp4` | 1920 × 1080 (FHD) | Dedicated FHD-pipeline test (Frames extraction at source resolution). |
-| `image/gradient.png`, `image/photo-*.jpg` | 1920 × 1080 (FHD) | All Image hub tests use real 1080p input. |
+| `av/clip.mp4` / `clip.webm` / `segment-*.mp4` | 1280 × 720 (HD) | Every AV test uses real HD content. The Frames test asserts the output PNG keeps the source 1280 × 720 dimensions. |
+| `image/gradient.png`, `image/photo-*.jpg`, `image/sample.webp` | 1920 × 1080 (FHD) | Every Image hub test runs against real FHD input. |
 | `image/alpha.png`, `image/solid-red.png` | 16 × 16 / 32 × 32 | About alpha / color handling, not resolution. |
+| `image/animated.gif` | 32 × 32 (4 frames) | About animation handling, not resolution. |
 
-4K (2160p) is out of scope: encoding a 2-second 4K MP4 in headless Chromium
-without GPU acceleration adds ~30s per affected test. If we ever need to
-verify the 4K code path explicitly, regenerate fixtures with a synthetic
-upscale and add a serial `@slow` describe block.
+### Why 720p for AV but 1080p for images
+
+Image processing is nearly free in Node — bumping PNGs/JPEGs to 1080p added
+no measurable time. AV is different: encoding a 2-second 1080p MP4 in headless
+Chromium via WebCodecs runs without GPU acceleration and pegs CPU. We tried
+1080p baseline for AV and it caused 7 unrelated tests in the parallel code/data
+specs to fail with timeouts because the dev server was starved during the AV
+suite. 720p keeps the AV suite real-world (it's still HD) without that contention.
+
+4K is out of scope for the same reason, scaled up. If we ever need to verify
+4K behavior explicitly, regenerate fixtures with a synthetic upscale and put
+the test in a `@slow` describe block that doesn't run in the default suite.
 
 ## Provenance + licenses
 

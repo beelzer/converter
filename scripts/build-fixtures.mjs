@@ -70,27 +70,31 @@ async function buildAv() {
   // Seed is video-only. We mux in a synthetic sine-wave audio track so the
   // resulting MP4/WebM exercise both streams (which the A/V tools care about).
 
-  // 2-second 320x180 H.264 + AAC MP4
+  // 2-second 720p H.264 + AAC MP4 (HD baseline — every AV test uses this).
+  // 720p is the sweet spot: it's real HD content that exercises real-world
+  // pipelines, but encoding it in headless Chromium doesn't starve the dev
+  // server enough to cascade timeouts into the parallel code/data suites.
+  // (1080p baseline was tried and caused 7 unrelated timeouts under load.)
   runFfmpeg([
     "-i", seed,
     "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100:duration=2",
     "-t", "2",
-    "-vf", "scale=320:180",
+    "-vf", "scale=1280:720",
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "30",
-    "-c:a", "aac", "-b:a", "64k",
+    "-c:a", "aac", "-b:a", "96k",
     "-shortest",
     join(OUT, "av", "clip.mp4"),
   ]);
   console.log(`  av/clip.mp4`);
 
-  // 2-second WebM (VP9 + Opus) — different container for conversion tests
+  // 2-second 720p WebM (VP9 + Opus) — different container for conversion tests
   runFfmpeg([
     "-i", seed,
     "-f", "lavfi", "-i", "sine=frequency=660:sample_rate=48000:duration=2",
     "-t", "2",
-    "-vf", "scale=320:180",
-    "-c:v", "libvpx-vp9", "-b:v", "200k", "-deadline", "realtime",
-    "-c:a", "libopus", "-b:a", "64k",
+    "-vf", "scale=1280:720",
+    "-c:v", "libvpx-vp9", "-b:v", "800k", "-deadline", "realtime",
+    "-c:a", "libopus", "-b:a", "96k",
     "-shortest",
     join(OUT, "av", "clip.webm"),
   ]);
@@ -113,11 +117,12 @@ async function buildAv() {
   ]);
   console.log(`  av/audio.wav`);
 
-  // Two short MP4 segments for merge test
+  // Two short 720p MP4 segments for merge test (different time offsets so
+  // the joined output has distinguishable A/B halves).
   runFfmpeg([
     "-i", seed,
     "-ss", "0", "-t", "1",
-    "-vf", "scale=320:180",
+    "-vf", "scale=1280:720",
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "30",
     "-an",
     join(OUT, "av", "segment-a.mp4"),
@@ -125,43 +130,12 @@ async function buildAv() {
   runFfmpeg([
     "-i", seed,
     "-ss", "5", "-t", "1",
-    "-vf", "scale=320:180",
+    "-vf", "scale=1280:720",
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "30",
     "-an",
     join(OUT, "av", "segment-b.mp4"),
   ]);
   console.log(`  av/segment-a.mp4 + segment-b.mp4`);
-
-  // ---- High-resolution variants ----
-  // Used by dedicated tests that exercise the HD / FHD pipelines. The bulk
-  // of the AV suite still uses the small 320x180 clip above so the suite
-  // stays fast; these are opt-in per test.
-
-  // 1-second 720p H.264 + AAC MP4 (HD)
-  runFfmpeg([
-    "-i", seed,
-    "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100:duration=1",
-    "-t", "1",
-    "-vf", "scale=1280:720",
-    "-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
-    "-c:a", "aac", "-b:a", "96k",
-    "-shortest",
-    join(OUT, "av", "clip-720p.mp4"),
-  ]);
-  console.log(`  av/clip-720p.mp4`);
-
-  // 1-second 1080p H.264 + AAC MP4 (FHD)
-  runFfmpeg([
-    "-i", seed,
-    "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100:duration=1",
-    "-t", "1",
-    "-vf", "scale=1920:1080",
-    "-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
-    "-c:a", "aac", "-b:a", "128k",
-    "-shortest",
-    join(OUT, "av", "clip-1080p.mp4"),
-  ]);
-  console.log(`  av/clip-1080p.mp4`);
 }
 
 // ============================================================================
