@@ -29,6 +29,15 @@ declare module "piexifjs" {
   export default piexif;
 }
 
+declare module "csso" {
+  interface MinifyResult {
+    css: string;
+    map?: unknown;
+  }
+  export function minify(source: string, options?: Record<string, unknown>): MinifyResult;
+  export function minifyBlock(source: string, options?: Record<string, unknown>): MinifyResult;
+}
+
 declare module "mammoth/mammoth.browser.js" {
   interface MammothResult {
     value: string;

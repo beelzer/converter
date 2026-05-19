@@ -1,0 +1,124 @@
+---
+import ToolLayout from "../components/ToolLayout.astro";
+import CodeHub from "../components/tools/CodeHub.tsx";
+
+const title = "Code tools — beautify and minify in your browser | tools.dcln.me";
+const description =
+  "Beautify or minify code locally in your browser. JavaScript, TypeScript, CSS, HTML, JSON, SCSS, LESS, Markdown, YAML, GraphQL, Vue, SQL. Powered by prettier, sql-formatter, terser, and csso.";
+
+const howToSchema = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "How to beautify and minify code in your browser",
+  step: [
+    {
+      "@type": "HowToStep",
+      position: 1,
+      name: "Pick a mode",
+      text: "Choose Beautify to format with consistent style, or Minify to shrink output for production.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 2,
+      name: "Pick a language and paste",
+      text: "Select the language (or drop a file — its extension picks for you). Paste your code into the editor.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 3,
+      name: "Run, copy, or download",
+      text: "Click the action button. Copy from the output panel or download as a properly-named file.",
+    },
+  ],
+};
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Why is the JS minifier so big?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Terser is ~400KB minified — the price of a real AST-based minifier with dead-code elimination, name mangling, and the parser to support modern JavaScript. We lazy-load it, so it only downloads when you actually run Minify on JS or TS. Faster shallow alternatives exist but they don't produce competitive output.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does the TypeScript minifier strip types?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No — terser doesn't speak TypeScript. We treat .ts input as JS, which works for files where types have already been stripped, or for TS-flavoured JS that happens to be valid both ways. To minify real TypeScript, transpile first with tsc, swc, or esbuild, then paste the JS output here.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Is my code uploaded anywhere?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No. Prettier, terser, csso and sql-formatter all run in your browser. Open the network tab while you format — you'll see one-time downloads of the relevant language parsers when you first use them, then nothing else.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Can I configure prettier options?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Right now you can set indent (2 or 4 spaces). The rest is prettier's defaults. We can expose more (printWidth, quote style, semicolons, etc.) if there's demand — open an issue on GitHub.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Why is HTML minify so cautious?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "We use a small regex-based collapser instead of html-minifier-terser, which would add another ~200KB. It strips comments and collapses inter-tag whitespace while leaving <pre>, <textarea>, <script>, and <style> contents alone. That's safe but conservative — for maximum compression, run html-minifier-terser at build time.",
+      },
+    },
+  ],
+};
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Tools", item: "https://tools.dcln.me/" },
+    { "@type": "ListItem", position: 2, name: "Code", item: "https://tools.dcln.me/code" },
+  ],
+};
+---
+
+<ToolLayout title={title} description={description} schema={[howToSchema, faqSchema, breadcrumbSchema]}>
+  <section class="mx-auto max-w-5xl px-6 pt-12 sm:pt-16">
+    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-3 uppercase tracking-widest">
+      <a href="/" class="hover:text-[var(--color-fg)]">tools</a>
+      <span class="mx-2">/</span>
+      <span>code</span>
+    </p>
+    <h1 class="font-mono text-3xl sm:text-4xl font-semibold leading-tight">
+      Code tools.
+    </h1>
+    <p class="mt-4 text-lg text-[var(--color-fg-muted)] leading-relaxed">
+      Beautify or minify code locally — JavaScript, TypeScript, CSS, HTML, JSON, SCSS, LESS, Markdown, YAML, GraphQL, Vue, SQL. Powered by prettier, sql-formatter, terser, and csso.
+    </p>
+  </section>
+
+  <section class="mx-auto max-w-5xl px-6 mt-10" aria-label="Code toolkit">
+    <CodeHub client:load />
+  </section>
+
+  <section class="mx-auto max-w-5xl px-6 mt-16 mb-12" aria-labelledby="faq-heading">
+    <h2 id="faq-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
+      FAQ
+    </h2>
+    <dl class="space-y-6">
+      {faqSchema.mainEntity.map((qa) => (
+        <div>
+          <dt class="font-mono text-base text-[var(--color-fg)] mb-2">{qa.name}</dt>
+          <dd class="text-[var(--color-fg-muted)] leading-relaxed">{qa.acceptedAnswer.text}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+</ToolLayout>
