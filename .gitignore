@@ -24,6 +24,8 @@ pnpm-debug.log*
 # Playwright
 playwright-report/
 test-results/
+# visual e2e report (regenerated locally via `npm run test:report`)
+test-artifacts/
 
 # Lighthouse CI (local runs only — CI publishes to temporary-public-storage)
 .lighthouseci/

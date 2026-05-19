@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
-import { FIXTURES } from "./fixtures";
+import { FIXTURES, report } from "./fixtures";
 
 async function writeTextFixture(name: string, body: string): Promise<string> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "data-e2e-"));
@@ -106,8 +106,16 @@ test.describe("Data toolkit", () => {
   });
 });
 
+async function snapshot(text: string, ext: string, hint: string): Promise<string> {
+  const filepath = path.join(os.tmpdir(), `e2e-${hint}-${Date.now()}.${ext}`);
+  await fs.writeFile(filepath, text, "utf8");
+  return filepath;
+}
+
 test.describe("Data toolkit — real fixtures", () => {
-  test("Convert: real JSON → YAML preserves the person records", async ({ page }) => {
+  test("Convert: real JSON → YAML preserves the person records", async ({
+    page,
+  }, testInfo) => {
     await page.goto("/data/");
     await page.setInputFiles('input[type="file"]', FIXTURES.data.json);
     await expect(page.locator("#format-from")).toHaveValue("json");
@@ -120,9 +128,14 @@ test.describe("Data toolkit — real fixtures", () => {
     expect(value).toContain("name: Ada Lovelace");
     expect(value).toContain("name: Grace Hopper");
     expect(value).toContain("born: 1815");
+
+    report(testInfo, {
+      input: { path: FIXTURES.data.json, label: "people.json" },
+      output: { path: await snapshot(value, "yaml", "json2yaml"), label: "people.yaml (converted)" },
+    });
   });
 
-  test("Convert: real YAML → JSON round-trips correctly", async ({ page }) => {
+  test("Convert: real YAML → JSON round-trips correctly", async ({ page }, testInfo) => {
     await page.goto("/data/");
     await page.setInputFiles('input[type="file"]', FIXTURES.data.yaml);
     await expect(page.locator("#format-from")).toHaveValue("yaml");
@@ -135,9 +148,14 @@ test.describe("Data toolkit — real fixtures", () => {
     const parsed = JSON.parse(value);
     expect(parsed.people).toHaveLength(3);
     expect(parsed.people[0].name).toBe("Ada Lovelace");
+
+    report(testInfo, {
+      input: { path: FIXTURES.data.yaml, label: "people.yaml" },
+      output: { path: await snapshot(value, "json", "yaml2json"), label: "people.json (converted)" },
+    });
   });
 
-  test("Convert: real CSV → JSON inflates the table rows", async ({ page }) => {
+  test("Convert: real CSV → JSON inflates the table rows", async ({ page }, testInfo) => {
     await page.goto("/data/");
     await page.setInputFiles('input[type="file"]', FIXTURES.data.csv);
     await expect(page.locator("#format-from")).toHaveValue("csv");
@@ -146,11 +164,17 @@ test.describe("Data toolkit — real fixtures", () => {
 
     const out = page.getByLabel("Output data");
     await expect(out).not.toHaveValue("", { timeout: 5000 });
-    const parsed = JSON.parse(await out.inputValue());
+    const raw = await out.inputValue();
+    const parsed = JSON.parse(raw);
     // CSV inflates to an array of row objects.
     expect(Array.isArray(parsed)).toBe(true);
     expect(parsed.length).toBe(3);
     expect(parsed[0]).toHaveProperty("name");
+
+    report(testInfo, {
+      input: { path: FIXTURES.data.csv, label: "people.csv" },
+      output: { path: await snapshot(raw, "json", "csv2json"), label: "people.json (inflated)" },
+    });
   });
 
   test("Validate: each real fixture confirms valid for its format", async ({ page }) => {
@@ -177,7 +201,7 @@ test.describe("Data toolkit — real fixtures", () => {
 
   test("TS Types: real JSON fixture produces an interface with the expected fields", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.goto("/data/");
     await page.getByRole("tab", { name: "TS Types" }).click();
     const body = await fs.readFile(FIXTURES.data.json, "utf8");
@@ -193,9 +217,16 @@ test.describe("Data toolkit — real fixtures", () => {
     expect(value).toMatch(/people\s*:\s*\(?[\w\s|]+\)?\[\]/);
     expect(value).toContain("name: string");
     expect(value).toMatch(/born\s*:\s*number/);
+
+    report(testInfo, {
+      input: { path: FIXTURES.data.json, label: "people.json (source data)" },
+      output: { path: await snapshot(value, "ts", "json2ts"), label: "Generated TS interfaces" },
+    });
   });
 
-  test("Format: real TOML round-trips through the pretty serializer", async ({ page }) => {
+  test("Format: real TOML round-trips through the pretty serializer", async ({
+    page,
+  }, testInfo) => {
     await page.goto("/data/");
     await page.getByRole("tab", { name: "Format / Minify" }).click();
     const body = await fs.readFile(FIXTURES.data.toml, "utf8");
@@ -209,6 +240,10 @@ test.describe("Data toolkit — real fixtures", () => {
     const value = await out.inputValue();
     expect(value).toContain("name");
     expect(value).toContain("born");
-  });
 
+    report(testInfo, {
+      input: { path: FIXTURES.data.toml, label: "people.toml" },
+      output: { path: await snapshot(value, "toml", "toml-format"), label: "Pretty-printed TOML" },
+    });
+  });
 });

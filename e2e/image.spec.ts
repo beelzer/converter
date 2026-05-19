@@ -4,7 +4,7 @@ import { PNG } from "pngjs";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
-import { FIXTURES } from "./fixtures";
+import { FIXTURES, report } from "./fixtures";
 
 // Minimal SVG fixture.
 const SVG_TEXT =
@@ -141,7 +141,7 @@ test.describe("Image toolkit", () => {
     expect(Object.keys(files)).toContain("site.webmanifest");
   });
 
-  test("Convert mode converts a real WebP fixture to PNG", async ({ page }) => {
+  test("Convert mode converts a real WebP fixture to PNG", async ({ page }, testInfo) => {
     await page.goto("/image/");
     await page.setInputFiles('input[type="file"]', FIXTURES.image.webp);
     await page.getByRole("button", { name: /^PNG$/ }).click();
@@ -154,11 +154,15 @@ test.describe("Image toolkit", () => {
     const bytes = await fs.readFile(outPath);
     // PNG signature
     expect([bytes[0], bytes[1], bytes[2], bytes[3]]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    report(testInfo, {
+      input: { path: FIXTURES.image.webp, label: "sample.webp (lossy)" },
+      output: { path: outPath, label: "sample.png (lossless re-encode)" },
+    });
   });
 
   test("Convert mode converts a real animated GIF to PNG (first frame)", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.goto("/image/");
     await page.setInputFiles('input[type="file"]', FIXTURES.image.animatedGif);
     await page.getByRole("button", { name: /^PNG$/ }).click();
@@ -166,11 +170,19 @@ test.describe("Image toolkit", () => {
 
     const dl = await page.waitForEvent("download");
     expect(dl.suggestedFilename()).toBe("animated.png");
+
+    const outPath = path.join(os.tmpdir(), `e2e-gif2png-${Date.now()}.png`);
+    await dl.saveAs(outPath);
+    report(testInfo, {
+      input: { path: FIXTURES.image.animatedGif, label: "animated.gif (4-frame loop)" },
+      output: { path: outPath, label: "animated.png (first frame only)" },
+      notes: "Static formats can only capture the first frame of an animated GIF.",
+    });
   });
 
   test("Resize mode shrinks the real gradient PNG to specific bounds", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.goto("/image/");
     await page.getByRole("tab", { name: /^Resize$/ }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.image.gradientPng);
@@ -190,9 +202,15 @@ test.describe("Image toolkit", () => {
     const png = PNG.sync.read(bytes);
     expect(png.width).toBeLessThanOrEqual(50);
     expect(png.height).toBeLessThanOrEqual(50);
+
+    report(testInfo, {
+      input: { path: FIXTURES.image.gradientPng, label: "gradient.png — 200×150" },
+      output: { path: outPath, label: `Resized to ${png.width}×${png.height} (within 50×50)` },
+      notes: "Aspect ratio preserved; larger dimension caps at 50.",
+    });
   });
 
-  test("SVG → Raster rasterizes the real fixture SVG", async ({ page }) => {
+  test("SVG → Raster rasterizes the real fixture SVG", async ({ page }, testInfo) => {
     await page.goto("/image/");
     await page.getByRole("tab", { name: /SVG → Raster/ }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.image.logoSvg);
@@ -201,9 +219,18 @@ test.describe("Image toolkit", () => {
     const download = await dl;
     // 200x100 viewBox doubled by default 1024 scale = 1024x512 (or so).
     expect(download.suggestedFilename()).toMatch(/^logo-\d+x\d+\.png$/);
+
+    const outPath = path.join(os.tmpdir(), `e2e-svg2raster-${Date.now()}.png`);
+    await download.saveAs(outPath);
+    report(testInfo, {
+      input: { path: FIXTURES.image.logoSvg, label: "logo.svg — vector source" },
+      output: { path: outPath, label: download.suggestedFilename() },
+    });
   });
 
-  test("Strip EXIF mode reads the EXIF tags from the fixture JPG", async ({ page }) => {
+  test("Strip EXIF mode reads the EXIF tags from the fixture JPG", async ({
+    page,
+  }, testInfo) => {
     await page.goto("/image/");
     await page.getByRole("tab", { name: /Strip EXIF/i }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.image.photoWithExifJpg);
@@ -226,11 +253,17 @@ test.describe("Image toolkit", () => {
     const haystack = bytes.toString("binary");
     expect(haystack).not.toContain("tools.dcln.me");
     expect(haystack).not.toContain("Synthetic Fixture");
+
+    report(testInfo, {
+      input: { path: FIXTURES.image.photoWithExifJpg, label: "Source — JPEG with EXIF (Make / Model / GPS)" },
+      output: { path: outPath, label: "Output — EXIF stripped" },
+      notes: "Both images should look visually identical; only metadata changes.",
+    });
   });
 
   test("Favicon mode emits a complete bundle from the real gradient PNG", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.goto("/image/");
     await page.getByRole("tab", { name: /^Favicon$/ }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.image.gradientPng);
@@ -245,6 +278,11 @@ test.describe("Image toolkit", () => {
     expect(Object.keys(files)).toContain("favicon.ico");
     expect(Object.keys(files)).toContain("apple-touch-icon.png");
     expect(Object.keys(files)).toContain("site.webmanifest");
+
+    report(testInfo, {
+      input: { path: FIXTURES.image.gradientPng, label: "gradient.png — source" },
+      output: { path: outPath, label: "favicon-bundle.zip (ico + apple-touch + webmanifest)" },
+    });
   });
 
   test("Strip EXIF mode accepts a JPG and produces a JPG output", async ({ page }) => {

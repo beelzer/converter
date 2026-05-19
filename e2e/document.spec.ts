@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
-import { FIXTURES } from "./fixtures";
+import { FIXTURES, report } from "./fixtures";
 
 async function writeTextFixture(name: string, body: string): Promise<string> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "doc-e2e-"));
@@ -70,8 +70,18 @@ test.describe("Document toolkit", () => {
   });
 });
 
+// Write a text output to a tempfile and return its path so report() can
+// snapshot it. Centralised here so each test stays a one-liner.
+async function snapshot(text: string, ext: string, hint: string): Promise<string> {
+  const filepath = path.join(os.tmpdir(), `e2e-${hint}-${Date.now()}.${ext}`);
+  await fs.writeFile(filepath, text, "utf8");
+  return filepath;
+}
+
 test.describe("Document toolkit — real fixtures", () => {
-  test("Markdown mode loads the committed fixture and renders it", async ({ page }) => {
+  test("Markdown mode loads the committed fixture and renders it", async ({
+    page,
+  }, testInfo) => {
     await page.goto("/document/");
     await page.setInputFiles('input[aria-label="Pick a Markdown file"]', FIXTURES.document.md);
     await expect(page.getByLabel("Markdown source")).toHaveValue(/Sample Markdown/, {
@@ -80,9 +90,16 @@ test.describe("Document toolkit — real fixtures", () => {
 
     const preview = page.frameLocator('iframe[title="Markdown preview"]');
     await expect(preview.getByRole("heading", { name: /^Sample Markdown$/ })).toBeVisible();
+
+    const md = await page.getByLabel("Markdown source").inputValue();
+    report(testInfo, {
+      input: { path: FIXTURES.document.md, label: "sample.md (committed fixture)" },
+      output: { path: await snapshot(md, "md", "md-loaded"), label: "Loaded into editor" },
+      notes: "Loading should round-trip the fixture verbatim into the textarea.",
+    });
   });
 
-  test("HTML mode converts the fixture HTML to Markdown", async ({ page }) => {
+  test("HTML mode converts the fixture HTML to Markdown", async ({ page }, testInfo) => {
     await page.goto("/document/");
     await page.getByRole("tab", { name: "HTML" }).click();
     const body = await fs.readFile(FIXTURES.document.html, "utf8");
@@ -94,9 +111,14 @@ test.describe("Document toolkit — real fixtures", () => {
     expect(value).toContain("# Sample HTML");
     expect(value).toContain("**bold**");
     expect(value).toContain("alpha");
+
+    report(testInfo, {
+      input: { path: FIXTURES.document.html, label: "sample.html (source)" },
+      output: { path: await snapshot(value, "md", "html2md"), label: "Markdown (turndown)" },
+    });
   });
 
-  test("DOCX mode converts the fixture to Markdown", async ({ page }) => {
+  test("DOCX mode converts the fixture to Markdown", async ({ page }, testInfo) => {
     await page.goto("/document/");
     await page.getByRole("tab", { name: "DOCX" }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.document.docx);
@@ -110,9 +132,14 @@ test.describe("Document toolkit — real fixtures", () => {
     expect(value).toContain("tools.dcln.me");
     // The DOCX has bold text — turndown should emit asterisks.
     expect(value).toMatch(/\*\*bold\*\*/);
+
+    report(testInfo, {
+      input: { path: FIXTURES.document.docx, label: "sample.docx (committed)" },
+      output: { path: await snapshot(value, "md", "docx2md"), label: "DOCX → Markdown (mammoth + turndown)" },
+    });
   });
 
-  test("DOCX mode can also produce HTML", async ({ page }) => {
+  test("DOCX mode can also produce HTML", async ({ page }, testInfo) => {
     await page.goto("/document/");
     await page.getByRole("tab", { name: "DOCX" }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.document.docx);
@@ -124,9 +151,16 @@ test.describe("Document toolkit — real fixtures", () => {
     const value = await out.inputValue();
     expect(value).toContain("<h1>");
     expect(value).toContain("<strong>bold</strong>");
+
+    report(testInfo, {
+      input: { path: FIXTURES.document.docx, label: "sample.docx" },
+      output: { path: await snapshot(value, "html", "docx2html"), label: "DOCX → HTML (mammoth)" },
+    });
   });
 
-  test("PDF → text extracts real text from the multi-page fixture", async ({ page }) => {
+  test("PDF → text extracts real text from the multi-page fixture", async ({
+    page,
+  }, testInfo) => {
     await page.goto("/document/");
     await page.getByRole("tab", { name: "PDF → text" }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.pdf.multiPage);
@@ -140,6 +174,11 @@ test.describe("Document toolkit — real fixtures", () => {
     expect(value).toContain("The quick brown fox");
     expect(value).toContain("Page 1 of 5");
     expect(value).toContain("Page 5 of 5");
+
+    report(testInfo, {
+      input: { path: FIXTURES.pdf.multiPage, label: "multi-page.pdf — 5 pages" },
+      output: { path: await snapshot(value, "txt", "pdf2text"), label: "Extracted plaintext (pdf.js)" },
+    });
   });
 
   test("PDF → text on a scanned (image-only) fixture yields effectively nothing", async ({

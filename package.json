@@ -17,6 +17,7 @@
     "lint": "eslint .",
     "test:e2e": "playwright test",
     "test:fixtures": "node scripts/build-fixtures.mjs",
+    "test:report": "node scripts/build-test-report.mjs",
     "deploy": "astro build && wrangler deploy"
   },
   "dependencies": {

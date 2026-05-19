@@ -3,7 +3,7 @@ import { zipSync, gzipSync, unzipSync } from "fflate";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
-import { FIXTURES } from "./fixtures";
+import { FIXTURES, report } from "./fixtures";
 
 async function writeTmp(name: string, bytes: Uint8Array): Promise<string> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "arch-e2e-"));
@@ -81,7 +81,7 @@ test.describe("Archive toolkit", () => {
 });
 
 test.describe("Archive toolkit — real fixtures", () => {
-  test("Extract a real ZIP and download all to a re-ZIP", async ({ page }) => {
+  test("Extract a real ZIP and download all to a re-ZIP", async ({ page }, testInfo) => {
     await page.goto("/archive/");
     await page.getByRole("tab", { name: "Extract" }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.archive.zip);
@@ -101,6 +101,12 @@ test.describe("Archive toolkit — real fixtures", () => {
     await download.saveAs(outPath);
     const round = unzipSync(await fs.readFile(outPath));
     expect(Object.keys(round).sort()).toEqual(["data.json", "notes.md", "readme.txt"]);
+
+    report(testInfo, {
+      input: { path: FIXTURES.archive.zip, label: "files.zip — 3 committed files" },
+      output: { path: outPath, label: "files-extracted.zip (round-tripped)" },
+      notes: "Both ZIPs should list the same contents (data.json, notes.md, readme.txt).",
+    });
   });
 
   test("Extract a real TAR.GZ archive and list its files", async ({ page }) => {
@@ -148,7 +154,7 @@ test.describe("Archive toolkit — real fixtures", () => {
 
   test("Create mode bundles the data-file fixtures into a downloadable ZIP", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.goto("/archive/");
     await page.setInputFiles('input[type="file"]', [
       FIXTURES.data.json,
@@ -167,5 +173,14 @@ test.describe("Archive toolkit — real fixtures", () => {
     await download.saveAs(outPath);
     const round = unzipSync(await fs.readFile(outPath));
     expect(Object.keys(round).sort()).toEqual(["people.csv", "people.json", "people.yaml"]);
+
+    report(testInfo, {
+      inputs: [
+        { path: FIXTURES.data.json, label: "people.json" },
+        { path: FIXTURES.data.yaml, label: "people.yaml" },
+        { path: FIXTURES.data.csv, label: "people.csv" },
+      ],
+      output: { path: outPath, label: "Bundled ZIP" },
+    });
   });
 });

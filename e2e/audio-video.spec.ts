@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
-import { FIXTURES } from "./fixtures";
+import { FIXTURES, report } from "./fixtures";
 
 const TAB_NAMES = [
   "Convert",
@@ -73,7 +73,7 @@ test.describe("Audio/video toolkit — real fixtures", () => {
   // timeouts. Serialise within this suite and give each operation room.
   test.describe.configure({ timeout: HEAVY_TIMEOUT, mode: "serial" });
 
-  test("Convert MP4 → WebM produces a valid WebM file", async ({ page }) => {
+  test("Convert MP4 → WebM produces a valid WebM file", async ({ page }, testInfo) => {
     await page.goto("/audio-video/");
     await page.setInputFiles('input[type="file"]', FIXTURES.av.clipMp4);
     // Wait for metadata to be read (the MetaSummary block appears).
@@ -97,9 +97,15 @@ test.describe("Audio/video toolkit — real fixtures", () => {
     // EBML/WebM signature: 1A 45 DF A3
     expect([bytes[0], bytes[1], bytes[2], bytes[3]]).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
     expect(bytes.byteLength).toBeGreaterThan(1024);
+
+    report(testInfo, {
+      input: { path: FIXTURES.av.clipMp4, label: "clip.mp4 — H.264 + AAC, 320×180, ~2s" },
+      output: { path: outPath, label: "clip.webm — VP9 + Opus (low quality preset)" },
+      notes: "Same visual content, different container + codecs. Both should play in the browser.",
+    });
   });
 
-  test("Extract audio from MP4 to WAV", async ({ page }) => {
+  test("Extract audio from MP4 to WAV", async ({ page }, testInfo) => {
     // WAV (PCM) keeps the encoder out of the picture — it's always available
     // and deterministic, making this a stable smoke test of the AAC decode
     // + mux pipeline. (MP3 encoding via mediabunny works in production but is
@@ -124,11 +130,17 @@ test.describe("Audio/video toolkit — real fixtures", () => {
     // WAV: "RIFF" header, "WAVE" at offset 8.
     expect(bytes.subarray(0, 4).toString("binary")).toBe("RIFF");
     expect(bytes.subarray(8, 12).toString("binary")).toBe("WAVE");
+
+    report(testInfo, {
+      input: { path: FIXTURES.av.clipMp4, label: "clip.mp4 (video + AAC audio track)" },
+      output: { path: outPath, label: "clip.wav — extracted PCM audio" },
+      notes: "Play both: the WAV should contain the same 440 Hz sine tone as the MP4's audio track.",
+    });
   });
 
   test("Frames mode extracts a single PNG frame from the MP4 fixture", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.goto("/audio-video/");
     await page.getByRole("tab", { name: /^Frames$/ }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.av.clipMp4);
@@ -147,11 +159,17 @@ test.describe("Audio/video toolkit — real fixtures", () => {
     await download.saveAs(outPath);
     const bytes = await fs.readFile(outPath);
     expect([bytes[0], bytes[1], bytes[2], bytes[3]]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+
+    report(testInfo, {
+      input: { path: FIXTURES.av.clipMp4, label: "clip.mp4" },
+      output: { path: outPath, label: `Frame at ${download.suggestedFilename()}` },
+      notes: "The PNG should show a single still from the BBB clip.",
+    });
   });
 
   test("Trim mode produces a sub-second clip from the MP4 fixture", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.goto("/audio-video/");
     await page.getByRole("tab", { name: /^Trim$/ }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.av.clipMp4);
@@ -174,9 +192,15 @@ test.describe("Audio/video toolkit — real fixtures", () => {
     const bytes = await fs.readFile(outPath);
     // MP4 'ftyp' box at offset 4.
     expect(bytes.subarray(4, 8).toString("binary")).toBe("ftyp");
+
+    report(testInfo, {
+      input: { path: FIXTURES.av.clipMp4, label: "clip.mp4 — full 2s" },
+      output: { path: outPath, label: "clip-trim.mp4 — 0.0s → 0.5s" },
+      notes: "The trimmed output should be roughly a quarter of the original duration.",
+    });
   });
 
-  test("Compress mode shrinks the MP4 fixture", async ({ page }) => {
+  test("Compress mode shrinks the MP4 fixture", async ({ page }, testInfo) => {
     await page.goto("/audio-video/");
     await page.getByRole("tab", { name: /^Compress$/ }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.av.clipMp4);
@@ -200,9 +224,15 @@ test.describe("Audio/video toolkit — real fixtures", () => {
     // ~150 kB, which can be _larger_ than our already-aggressively-encoded
     // 36 kB seed. We assert structural validity, not size, here.
     expect(out.byteLength).toBeGreaterThan(1024);
+
+    report(testInfo, {
+      input: { path: FIXTURES.av.clipMp4, label: `clip.mp4 — source (${(await fs.stat(FIXTURES.av.clipMp4)).size} bytes)` },
+      output: { path: outPath, label: `Recompressed at heavy preset (${out.byteLength} bytes)` },
+      notes: "The heavy preset targets 480p / 600 kbps — for an already-tiny source the output may grow.",
+    });
   });
 
-  test("Merge mode concatenates two MP4 segments", async ({ page }) => {
+  test("Merge mode concatenates two MP4 segments", async ({ page }, testInfo) => {
     await page.goto("/audio-video/");
     await page.getByRole("tab", { name: /^Merge$/ }).click();
     await page.setInputFiles('input[type="file"]', [
@@ -222,9 +252,17 @@ test.describe("Audio/video toolkit — real fixtures", () => {
     await download.saveAs(outPath);
     const out = await fs.readFile(outPath);
     expect(out.subarray(4, 8).toString("binary")).toBe("ftyp");
+
+    report(testInfo, {
+      inputs: [
+        { path: FIXTURES.av.segmentA, label: "segment-a.mp4 (0:00 → 0:01)" },
+        { path: FIXTURES.av.segmentB, label: "segment-b.mp4 (0:05 → 0:06)" },
+      ],
+      output: { path: outPath, label: "Merged MP4 — A then B" },
+    });
   });
 
-  test("Video → GIF turns the MP4 fixture into a GIF", async ({ page }) => {
+  test("Video → GIF turns the MP4 fixture into a GIF", async ({ page }, testInfo) => {
     await page.goto("/audio-video/");
     await page.getByRole("tab", { name: /Video → GIF/ }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.av.clipMp4);
@@ -242,5 +280,11 @@ test.describe("Audio/video toolkit — real fixtures", () => {
     const bytes = await fs.readFile(outPath);
     // GIF89a / GIF87a header
     expect(bytes.subarray(0, 6).toString("binary")).toMatch(/^GIF8[79]a$/);
+
+    report(testInfo, {
+      input: { path: FIXTURES.av.clipMp4, label: "clip.mp4 — source video" },
+      output: { path: outPath, label: "clip.gif — quantized animated GIF" },
+      notes: "The GIF should loop the same visual content as the source video.",
+    });
   });
 });

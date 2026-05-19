@@ -4,7 +4,7 @@ import { unzipSync } from "fflate";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
-import { FIXTURES } from "./fixtures";
+import { FIXTURES, report } from "./fixtures";
 
 const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEUlEQVR4nGP8z8DwHwQYGRgAFKEDA1f+gjwAAAAASUVORK5CYII=";
@@ -180,7 +180,7 @@ test.describe("PDF toolkit", () => {
 test.describe("PDF toolkit — real fixtures", () => {
   test("merges multi-page fixture with rotated fixture (5 + 3 = 8 pages)", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.goto("/pdf/");
     await page.setInputFiles('input[type="file"]', [
       FIXTURES.pdf.multiPage,
@@ -196,11 +196,20 @@ test.describe("PDF toolkit — real fixtures", () => {
     await download.saveAs(outPath);
     const merged = await PDFDocument.load(await fs.readFile(outPath));
     expect(merged.getPageCount()).toBe(8);
+
+    report(testInfo, {
+      inputs: [
+        { path: FIXTURES.pdf.multiPage, label: "multi-page.pdf — 5 pages with text + embedded image" },
+        { path: FIXTURES.pdf.rotated, label: "rotated.pdf — 3 pages each with 90° rotation" },
+      ],
+      output: { path: outPath, label: "merged.pdf — 8 pages concatenated in input order" },
+      notes: "Pages 1-5 are the multi-page fixture, pages 6-8 are the rotated fixture in their original 90° orientation.",
+    });
   });
 
   test("Split mode extracts specific pages from the 5-page fixture", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.goto("/pdf/");
     await page.getByRole("tab", { name: /^Split$/ }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.pdf.multiPage);
@@ -215,9 +224,15 @@ test.describe("PDF toolkit — real fixtures", () => {
     await download.saveAs(outPath);
     const split = await PDFDocument.load(await fs.readFile(outPath));
     expect(split.getPageCount()).toBe(3);
+
+    report(testInfo, {
+      input: { path: FIXTURES.pdf.multiPage, label: "multi-page.pdf — 5 pages" },
+      output: { path: outPath, label: "Extracted pages 1, 3, 5" },
+      notes: "The split output should contain only the odd-numbered pages from the source.",
+    });
   });
 
-  test("Rotate mode applies 180° to the multi-page fixture", async ({ page }) => {
+  test("Rotate mode applies 180° to the multi-page fixture", async ({ page }, testInfo) => {
     await page.goto("/pdf/");
     await page.getByRole("tab", { name: /^Rotate$/ }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.pdf.multiPage);
@@ -236,11 +251,16 @@ test.describe("PDF toolkit — real fixtures", () => {
     for (const p of rotated.getPages()) {
       expect(p.getRotation().angle).toBe(180);
     }
+
+    report(testInfo, {
+      input: { path: FIXTURES.pdf.multiPage, label: "multi-page.pdf (upright)" },
+      output: { path: outPath, label: "rotated 180° — content appears upside-down" },
+    });
   });
 
   test("PDF → Images renders the multi-page fixture into a 5-PNG ZIP", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.goto("/pdf/");
     await page.getByRole("tab", { name: /PDF → Images/i }).click();
     await page.setInputFiles('input[type="file"]', FIXTURES.pdf.multiPage);
@@ -266,6 +286,11 @@ test.describe("PDF toolkit — real fixtures", () => {
       expect(bytes[2]).toBe(0x4e);
       expect(bytes[3]).toBe(0x47);
     }
+
+    report(testInfo, {
+      input: { path: FIXTURES.pdf.multiPage, label: "multi-page.pdf" },
+      output: { path: outPath, label: "5-PNG ZIP — one rendered raster per page" },
+    });
   });
 
   test("Organize mode renders thumbnails for every page in the 5-page fixture", async ({

@@ -1,7 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
-import { FIXTURES } from "./fixtures";
+import path from "node:path";
+import os from "node:os";
+import { FIXTURES, report } from "./fixtures";
+
+async function snapshot(text: string, ext: string, hint: string): Promise<string> {
+  const filepath = path.join(os.tmpdir(), `e2e-${hint}-${Date.now()}.${ext}`);
+  await fs.writeFile(filepath, text, "utf8");
+  return filepath;
+}
 
 // A real, well-formed JWT with header.payload.signature parts and an expired
 // exp claim so the "expired" badge renders.
@@ -73,7 +81,7 @@ test.describe("Encoding toolkit", () => {
 test.describe("Encoding toolkit — real fixtures", () => {
   test("Hash mode against a real PNG fixture matches node:crypto SHA-256", async ({
     page,
-  }) => {
+  }, testInfo) => {
     const bytes = await fs.readFile(FIXTURES.image.gradientPng);
     const expected = createHash("sha256").update(bytes).digest("hex");
 
@@ -88,11 +96,17 @@ test.describe("Encoding toolkit — real fixtures", () => {
     await expect(page.getByText(new RegExp(expected, "i"))).toBeVisible({
       timeout: 10_000,
     });
+
+    report(testInfo, {
+      input: { path: FIXTURES.image.gradientPng, label: "gradient.png (input bytes)" },
+      output: { path: await snapshot(`sha256: ${expected}\n`, "txt", "hash"), label: "SHA-256 (browser WebCrypto)" },
+      notes: "The browser-computed hash should match node:crypto byte-for-byte.",
+    });
   });
 
   test("Base64 encode-from-file produces the expected encoding of the SVG fixture", async ({
     page,
-  }) => {
+  }, testInfo) => {
     const bytes = await fs.readFile(FIXTURES.image.logoSvg);
     const expected = bytes.toString("base64");
 
@@ -102,5 +116,10 @@ test.describe("Encoding toolkit — real fixtures", () => {
       FIXTURES.image.logoSvg
     );
     await expect(page.getByLabel("Output")).toHaveValue(expected, { timeout: 10_000 });
+
+    report(testInfo, {
+      input: { path: FIXTURES.image.logoSvg, label: "logo.svg (source)" },
+      output: { path: await snapshot(expected, "txt", "base64"), label: "Base64-encoded bytes" },
+    });
   });
 });

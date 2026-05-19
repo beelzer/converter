@@ -76,6 +76,7 @@ npm run check         # astro check (type + Astro template diagnostics)
 npm run lint          # eslint
 npm run test:e2e      # Playwright suite (102 tests)
 npm run test:fixtures # rebuild e2e/fixtures/* from source (needs ffmpeg + network)
+npm run test:report   # build test-artifacts/index.html — visual before/after viewer
 ```
 
 ## Testing
@@ -128,6 +129,7 @@ Modes share a hub (`PdfHub.tsx`, `ImageHub.tsx`, …). To add one:
 3. **Page** at `src/pages/<family>.astro` — uses [`HubPageLayout`](src/components/HubPageLayout.astro) which assembles the visible markup + `HowTo` + `FAQPage` + `BreadcrumbList` JSON-LD from a single data block.
 4. **E2E** at `e2e/<family>.spec.ts` — add a real-fixture spec block. If the new family needs new fixture types, extend [`scripts/build-fixtures.mjs`](scripts/build-fixtures.mjs) and [`e2e/fixtures.ts`](e2e/fixtures.ts).
 5. **WASM > 1 MB** — upload to R2 at `cdn.dcln.me/<lib-name>/<version>/<file>` and load from there. Pin the version.
+
    ```sh
    wrangler r2 object put dcln-assets/libheif/1.19.8/libheif.wasm --file=./libheif.wasm
    ```
