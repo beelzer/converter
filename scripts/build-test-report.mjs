@@ -410,7 +410,7 @@ function highlightCode(body, ext) {
 //
 // Line counts are still shown in the summary so the headline number stays
 // intuitive ("+18 -1") even though the body renders at token granularity.
-function renderUnifiedDiff(inputBody, outputBody) {
+function renderUnifiedDiff(inputBody, outputBody, ext) {
   // Line-count summary (intuitive headline numbers).
   let added = 0;
   let removed = 0;
@@ -475,12 +475,27 @@ function renderUnifiedDiff(inputBody, outputBody) {
     merged.push(a);
   }
 
+  // Apply syntax highlighting per chunk so kept tokens get the same hljs
+  // coloring as the input/output panels above (was plain white before).
+  // hljs sees each chunk in isolation rather than the full document, which
+  // is fine for our small chunks but means we pass `ignoreIllegals` to
+  // avoid false bailouts on partial tokens like `count(o.id)`.
+  const lang = HLJS_LANG[ext];
+  const hl = (s) => {
+    try {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(s, { language: lang, ignoreIllegals: true }).value;
+      }
+    } catch { /* fall through */ }
+    return escapeHtml(s);
+  };
+
   const html = merged
     .map((c) => {
       if (c.caseSwap) {
         return `<span class="diff-case" title="case change">${escapeHtml(c.value)}</span>`;
       }
-      const text = escapeHtml(c.value);
+      const text = hl(c.value);
       if (c.added) return `<ins>${text}</ins>`;
       if (c.removed) return `<del>${text}</del>`;
       return text;
@@ -691,7 +706,7 @@ function renderTest(spec, entry) {
       try {
         const inBody = readFileSync(join(ARTIFACTS, spec, slug, inArt.name), "utf8");
         const outBody = readFileSync(join(ARTIFACTS, spec, slug, outArt.name), "utf8");
-        diff = renderUnifiedDiff(inBody, outBody);
+        diff = renderUnifiedDiff(inBody, outBody, inExt);
       } catch {
         // Couldn't read as text — skip diff silently.
       }
