@@ -63,21 +63,65 @@ function ffmpegRun(args, { verbose = false } = {}) {
   };
 }
 
-// Render a horizontal waveform PNG (600×80) for an audio file. Returns the
-// filename relative to the test directory, or null if unavailable.
-function generateWaveform(audioPath, outDir, outName) {
+function getMediaDuration(path) {
+  if (!FFMPEG_AVAILABLE) return null;
+  const r = spawnSync(
+    "ffprobe",
+    ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
+    { encoding: "utf8" }
+  );
+  if (r.status !== 0) return null;
+  const d = parseFloat(r.stdout.trim());
+  return Number.isFinite(d) ? d : null;
+}
+
+// Render a horizontal waveform PNG (600×80) for an audio file (or any media
+// file with an audio track). For short clips, trim to a small slice so the
+// individual oscillations are visible — otherwise `showwavespic`'s envelope
+// renderer just produces a flat block for constant-amplitude signals.
+// Returns the filename relative to the test directory, or null if no audio.
+function generateWaveform(mediaPath, outDir, outName) {
   if (!FFMPEG_AVAILABLE) return null;
   const outPath = join(outDir, outName);
-  // showwavespic renders one still PNG. split_channels=0 mixes to mono so
-  // mono / stereo files look comparable. Colors match the dark theme accent.
+  const duration = getMediaDuration(mediaPath);
+
+  // Pick a trim window that shows oscillation detail rather than envelope:
+  //   short clips (≤ 3s): first 50 ms (~22 cycles at 440 Hz, clearly visible)
+  //   medium       (≤ 30s): first 200 ms (texture without losing context)
+  //   long      (> 30s): full overview (envelope dominates anyway)
+  let trim;
+  if (duration === null) trim = null;
+  else if (duration <= 3) trim = 0.05;
+  else if (duration <= 30) trim = 0.2;
+  else trim = null;
+
+  // `draw=full:filter=peak` traces every sample as a pixel rather than
+  // scaling the column to envelope amplitude — combined with the trim
+  // window above, this makes individual oscillations visible for short
+  // clips (a constant sine tone otherwise renders as a solid block).
+  const wave = "showwavespic=s=600x80:colors=#20b2aa:split_channels=0:draw=full:filter=peak";
+  const filter = trim
+    ? `atrim=duration=${trim},aresample=async=0,${wave}`
+    : wave;
+
   const r = ffmpegRun([
-    "-i", audioPath,
-    "-filter_complex", "showwavespic=s=600x80:colors=#20b2aa:split_channels=0",
+    "-i", mediaPath,
+    "-filter_complex", filter,
     "-frames:v", "1",
     outPath,
   ]);
   if (!r.ok || !existsSync(outPath)) return null;
   return outName;
+}
+
+function hasAudioStream(mediaPath) {
+  if (!FFMPEG_AVAILABLE) return false;
+  const r = spawnSync(
+    "ffprobe",
+    ["-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "csv=p=0", mediaPath],
+    { encoding: "utf8" }
+  );
+  return r.status === 0 && r.stdout.trim().length > 0;
 }
 
 // PSNR is roughly: >40 dB = visually identical, 30-40 = good, <30 = visible
@@ -338,24 +382,32 @@ function renderArtifact(spec, slug, artifact) {
     </figure>`;
   }
 
+  // Render a small waveform PNG for any media artifact that has an audio
+  // track (audio files always, video files only if they carry audio). The
+  // waveform sits under the caption so input/output audio is comparable
+  // even when one side is a <video> and the other is an <audio>.
+  const buildWaveform = () => {
+    const waveName = artifact.name.replace(/\.[^.]+$/, "") + ".waveform.png";
+    const wavePath = join(ARTIFACTS, spec, slug, waveName);
+    const waveFile = existsSync(wavePath)
+      ? waveName
+      : generateWaveform(fullPath, join(ARTIFACTS, spec, slug), waveName);
+    if (!waveFile) return "";
+    const src = `${encodeURIComponent(spec)}/${encodeURIComponent(slug)}/${encodeURIComponent(waveFile)}`;
+    return `<img class="waveform" src="${src}" alt="${label} waveform" loading="lazy">`;
+  };
+
   if (VIDEO_EXTS.has(ext)) {
+    const waveHtml = hasAudioStream(fullPath) ? buildWaveform() : "";
     return `<figure class="art art-video">${header}
+      ${waveHtml}
       <video src="${href}" controls preload="metadata"></video>
     </figure>`;
   }
 
   if (AUDIO_EXTS.has(ext)) {
-    // Generate (or reuse) a waveform PNG so the audio gets a static
-    // visualisation we can place under the player.
-    const waveName = artifact.name.replace(/\.[^.]+$/, "") + ".waveform.png";
-    const waveFile = existsSync(join(ARTIFACTS, spec, slug, waveName))
-      ? waveName
-      : generateWaveform(fullPath, join(ARTIFACTS, spec, slug), waveName);
-    const waveHtml = waveFile
-      ? `<img class="waveform" src="${encodeURIComponent(spec)}/${encodeURIComponent(slug)}/${encodeURIComponent(waveFile)}" alt="${label} waveform" loading="lazy">`
-      : "";
     return `<figure class="art art-audio">${header}
-      ${waveHtml}
+      ${buildWaveform()}
       <audio src="${href}" controls preload="metadata"></audio>
     </figure>`;
   }
@@ -501,33 +553,69 @@ body {
   background: var(--bg);
   color: var(--fg);
   line-height: 1.5;
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
 }
-header {
-  padding: 2rem 2.5rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-}
-h1 { margin: 0 0 0.25rem; font-size: 1.75rem; }
-header p { margin: 0; color: var(--fg-dim); font-size: 0.9rem; }
-nav {
+aside.sidebar {
   position: sticky;
   top: 0;
-  background: var(--bg);
-  padding: 0.75rem 2.5rem;
-  border-bottom: 1px solid var(--border);
+  align-self: flex-start;
+  width: 240px;
+  flex: 0 0 240px;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 1.5rem 1.25rem;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 0.85rem;
+}
+.sidebar h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0.02em;
+}
+.sidebar .subtitle {
+  margin: 0 0 1.25rem;
+  color: var(--fg-dim);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+.sidebar nav { display: flex; flex-direction: column; gap: 0.2rem; }
+.sidebar nav a {
+  color: var(--fg-dim);
+  text-decoration: none;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
   display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  z-index: 10;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  border-left: 2px solid transparent;
 }
-nav a { color: var(--fg-dim); text-decoration: none; }
-nav a:hover { color: var(--accent); }
-main { padding: 1.5rem 2.5rem 4rem; max-width: 1800px; }
-section {
-  margin-top: 2rem;
-  padding-top: 1rem;
+.sidebar nav a:hover {
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.03);
 }
+.sidebar nav a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: rgba(32, 178, 170, 0.08);
+}
+.sidebar nav a .nav-count {
+  color: var(--fg-dim);
+  font-size: 0.72rem;
+}
+main {
+  flex: 1;
+  min-width: 0;
+  padding: 1.5rem 2.5rem 4rem;
+  max-width: 1600px;
+}
+section { padding-top: 0.5rem; }
+section + section { margin-top: 2.25rem; }
 h2 {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   text-transform: uppercase;
@@ -539,6 +627,18 @@ h2 {
   margin: 0 0 1.5rem;
 }
 h2 .count { color: var(--fg-dim); margin-left: 0.5rem; font-weight: normal; }
+@media (max-width: 800px) {
+  body { flex-direction: column; }
+  aside.sidebar {
+    position: static;
+    width: 100%;
+    flex: 0 0 auto;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar nav { flex-direction: row; flex-wrap: wrap; }
+}
 .test {
   border: 1px solid var(--border);
   background: var(--surface);
@@ -560,9 +660,11 @@ h2 .count { color: var(--fg-dim); margin-left: 0.5rem; font-weight: normal; }
   grid-template-columns: 1fr 1fr;
   gap: 1.25rem;
 }
-@media (max-width: 900px) {
+@media (max-width: 1200px) {
   .cols { grid-template-columns: 1fr; }
-  header, nav, main { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (max-width: 800px) {
+  main { padding: 1rem; }
 }
 .col h4 {
   margin: 0 0 0.75rem;
@@ -754,10 +856,46 @@ function renderHtml(groups) {
   const sortedSpecs = Array.from(groups.keys()).sort();
 
   const navLinks = sortedSpecs
-    .map((s) => `<a href="#${escapeHtml(s)}">${escapeHtml(s)} <span>(${groups.get(s).length})</span></a>`)
+    .map(
+      (s) =>
+        `<a href="#${escapeHtml(s)}" data-target="${escapeHtml(s)}">` +
+        `<span class="nav-name">${escapeHtml(s)}</span>` +
+        `<span class="nav-count">${groups.get(s).length}</span>` +
+        `</a>`
+    )
     .join("");
 
   const sections = sortedSpecs.map((s) => renderSection(s, groups.get(s))).join("\n");
+
+  // Active-section tracking via IntersectionObserver. Tiny vanilla JS — no
+  // framework or external script. The first section whose top has scrolled
+  // into the upper portion of the viewport wins.
+  const activeScript = `
+(function() {
+  const links = new Map();
+  document.querySelectorAll('.sidebar nav a[data-target]').forEach(a => {
+    links.set(a.dataset.target, a);
+  });
+  const setActive = (id) => {
+    for (const [target, a] of links) {
+      a.classList.toggle('active', target === id);
+    }
+  };
+  const sections = Array.from(document.querySelectorAll('main > section'));
+  if (sections.length === 0) return;
+  const io = new IntersectionObserver(
+    (entries) => {
+      const visible = entries
+        .filter((e) => e.isIntersecting)
+        .sort((a, b) => a.target.offsetTop - b.target.offsetTop);
+      if (visible.length > 0) setActive(visible[0].target.id);
+    },
+    { rootMargin: '-10% 0px -75% 0px', threshold: 0 }
+  );
+  sections.forEach((s) => io.observe(s));
+  setActive(sections[0].id);
+})();
+`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -768,12 +906,13 @@ function renderHtml(groups) {
   <style>${CSS}</style>
 </head>
 <body>
-  <header>
-    <h1>Visual e2e report</h1>
-    <p>${totalTests} tests across ${groups.size} hubs · generated ${escapeHtml(generatedAt)}</p>
-  </header>
-  <nav>${navLinks}</nav>
+  <aside class="sidebar">
+    <h1>visual e2e report</h1>
+    <p class="subtitle">${totalTests} tests · ${groups.size} hubs<br>generated ${escapeHtml(generatedAt)}</p>
+    <nav>${navLinks}</nav>
+  </aside>
   <main>${sections}</main>
+  <script>${activeScript}</script>
 </body>
 </html>
 `;
