@@ -4,7 +4,14 @@
 // directly. The files are produced by scripts/build-fixtures.mjs and committed
 // under e2e/fixtures/ — see e2e/fixtures/README.md for provenance/licenses.
 
-import { copyFileSync, existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { TestInfo } from "@playwright/test";
@@ -95,6 +102,9 @@ export function report(testInfo: TestInfo, r: ReportInput): void {
   if (process.env.REPORT_ARTIFACTS === "0") return;
   const specBase = path.basename(testInfo.file).replace(/\.spec\.ts$/, "");
   const dir = path.join(ARTIFACTS_DIR, specBase, slugify(testInfo.title));
+  // Clear any artifacts from a previous run for this test so the report
+  // doesn't accumulate stale outputs that no longer correspond to the meta.
+  rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
 
   const ins = r.inputs ?? (r.input ? [r.input] : []);

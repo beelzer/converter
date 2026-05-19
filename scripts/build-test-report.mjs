@@ -10,6 +10,7 @@
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { unzipSync, gunzipSync } from "fflate";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -26,11 +27,97 @@ const TEXT_EXTS = new Set([
 const ARCHIVE_EXTS = new Set(["zip", "tar", "gz", "tgz", "rar", "7z", "bz2"]);
 
 const TEXT_PREVIEW_LIMIT = 16 * 1024; // chars
+const ARCHIVE_PREVIEW_LIMIT = 4 * 1024; // chars — per file inside an archive
+const ARCHIVE_TEXT_EXTS = new Set([
+  "txt", "md", "html", "json", "yaml", "yml", "xml", "toml", "csv", "tsv",
+  "js", "ts", "css", "sql", "log", "manifest", "webmanifest",
+]);
 
 function fmtBytes(n) {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(2)} MB`;
+}
+
+// Minimal ustar TAR reader. Yields { name, bytes } per regular file entry.
+// Format ref: https://www.gnu.org/software/tar/manual/html_node/Standard.html
+function readTar(bytes) {
+  const out = [];
+  const dec = new TextDecoder("utf-8", { fatal: false });
+  let off = 0;
+  while (off + 512 <= bytes.length) {
+    const header = bytes.subarray(off, off + 512);
+    // All-zero block = end of archive.
+    let allZero = true;
+    for (let i = 0; i < 512; i++) {
+      if (header[i] !== 0) { allZero = false; break; }
+    }
+    if (allZero) break;
+
+    const name = dec.decode(header.subarray(0, 100)).replace(/\0.*$/, "");
+    const sizeOct = dec.decode(header.subarray(124, 136)).replace(/[^0-7]/g, "");
+    const size = sizeOct ? parseInt(sizeOct, 8) : 0;
+    const typeflag = String.fromCharCode(header[156] || 0x30);
+
+    off += 512;
+    if (size > 0) {
+      // Regular file (typeflag '0' or '\0') vs directory ('5') vs other.
+      if (typeflag === "0" || typeflag === "\0") {
+        out.push({ name, bytes: bytes.subarray(off, off + size) });
+      }
+      off += size;
+      // Round up to next 512-byte boundary.
+      const pad = (512 - (size % 512)) % 512;
+      off += pad;
+    }
+  }
+  return out;
+}
+
+// Returns { entries: [{name, size, bytes?}], totalBytes } or null if we can't
+// read the archive (RAR / 7z / corrupt). `bytes` is only populated for small
+// text entries we want to inline-preview.
+function inspectArchive(filePath, ext) {
+  let raw;
+  try {
+    raw = readFileSync(filePath);
+  } catch {
+    return null;
+  }
+  let entries;
+  try {
+    if (ext === "zip") {
+      const unzipped = unzipSync(raw);
+      entries = Object.entries(unzipped).map(([name, bytes]) => ({ name, bytes }));
+    } else if (ext === "tar") {
+      entries = readTar(raw);
+    } else if (ext === "gz" || ext === "tgz") {
+      const inner = gunzipSync(raw);
+      // .tar.gz / .tgz — sniff for the ustar magic at offset 257 of the
+      // first 512-byte block. Otherwise treat as a single-file gzip.
+      const magic = inner.subarray(257, 263);
+      const isTar = inner.length >= 512 &&
+        magic[0] === 0x75 && magic[1] === 0x73 && magic[2] === 0x74 && magic[3] === 0x61 && magic[4] === 0x72;
+      if (isTar) {
+        entries = readTar(inner);
+      } else {
+        // Single-file gzip: inferred name is the path with .gz stripped.
+        const base = filePath.split(/[/\\]/).pop().replace(/\.gz$/i, "");
+        entries = [{ name: base, bytes: inner }];
+      }
+    } else {
+      return null; // rar, 7z, bz2 — no inspector
+    }
+  } catch (err) {
+    return { entries: [], error: err.message };
+  }
+  let totalBytes = 0;
+  const decorated = entries.map((e) => {
+    totalBytes += e.bytes.length;
+    return { name: e.name, size: e.bytes.length, bytes: e.bytes };
+  });
+  decorated.sort((a, b) => a.name.localeCompare(b.name));
+  return { entries: decorated, totalBytes };
 }
 
 function escapeHtml(s) {
@@ -65,6 +152,44 @@ function readMetas() {
     if (entries.length > 0) groups.set(spec, entries);
   }
   return groups;
+}
+
+function renderArchiveContents(inspected, downloadHref, ext) {
+  const { entries, totalBytes, error } = inspected;
+  const dec = new TextDecoder("utf-8", { fatal: false });
+
+  if (error) {
+    return `<div class="art-binary">⚠ Could not read ${escapeHtml(ext.toUpperCase())}: ${escapeHtml(error)} — <a href="${downloadHref}" target="_blank">download raw</a></div>`;
+  }
+  if (entries.length === 0) {
+    return `<div class="art-binary">Archive is empty — <a href="${downloadHref}" target="_blank">download raw</a></div>`;
+  }
+
+  const rows = entries.map((e) => {
+    const entryExt = (e.name.match(/\.([^.\\/]+)$/) || [, ""])[1].toLowerCase();
+    const isTextPreview = ARCHIVE_TEXT_EXTS.has(entryExt) && e.size > 0;
+    let previewBlock = "";
+    if (isTextPreview) {
+      const body = dec.decode(e.bytes);
+      const truncated = body.length > ARCHIVE_PREVIEW_LIMIT;
+      const display = truncated ? body.slice(0, ARCHIVE_PREVIEW_LIMIT) + "\n…" : body;
+      previewBlock = `<details class="archive-preview"><summary>preview</summary><pre><code>${escapeHtml(display)}</code></pre></details>`;
+    }
+    return `<li>
+      <span class="archive-name">${escapeHtml(e.name)}</span>
+      <span class="archive-size">${fmtBytes(e.size)}</span>
+      ${previewBlock}
+    </li>`;
+  }).join("\n");
+
+  return `<div class="archive-contents">
+    <div class="archive-summary">
+      <strong>${entries.length}</strong> file${entries.length === 1 ? "" : "s"}
+      · ${fmtBytes(totalBytes)} uncompressed
+      · <a href="${downloadHref}" target="_blank">download archive</a>
+    </div>
+    <ul class="archive-list">${rows}</ul>
+  </div>`;
 }
 
 function renderArtifact(spec, slug, artifact) {
@@ -122,8 +247,16 @@ function renderArtifact(spec, slug, artifact) {
   }
 
   if (ARCHIVE_EXTS.has(ext)) {
+    const fullPath = join(ARTIFACTS, spec, slug, artifact.name);
+    const inspected = inspectArchive(fullPath, ext);
+    if (!inspected) {
+      // RAR / 7z / unsupported: fall back to download-only.
+      return `<figure class="art art-archive">${header}
+        <div class="art-binary">📦 Archive (${escapeHtml(ext.toUpperCase())}) — <a href="${href}" target="_blank">download</a></div>
+      </figure>`;
+    }
     return `<figure class="art art-archive">${header}
-      <div class="art-binary">📦 Binary archive — <a href="${href}" target="_blank">download</a></div>
+      ${renderArchiveContents(inspected, href, ext)}
     </figure>`;
   }
 
@@ -301,6 +434,60 @@ h2 .count { color: var(--fg-dim); margin-left: 0.5rem; font-weight: normal; }
   padding: 1rem;
   color: var(--fg-dim);
   font-size: 0.9rem;
+}
+.archive-contents { padding: 0.5rem 0.75rem 0.75rem; }
+.archive-summary {
+  font-size: 0.8rem;
+  color: var(--fg-dim);
+  padding: 0.25rem 0.25rem 0.5rem;
+  border-bottom: 1px dashed var(--border);
+  margin-bottom: 0.4rem;
+}
+.archive-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.archive-list li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
+}
+.archive-list li:last-child { border-bottom: none; }
+.archive-name {
+  color: var(--fg);
+  word-break: break-all;
+  min-width: 0;
+}
+.archive-size { color: var(--fg-dim); white-space: nowrap; }
+.archive-preview {
+  grid-column: 1 / -1;
+  margin-top: 0.3rem;
+}
+.archive-preview summary {
+  cursor: pointer;
+  font-size: 0.7rem;
+  color: var(--accent);
+  user-select: none;
+}
+.archive-preview pre {
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.72rem;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .art-fallback {
   display: block;
