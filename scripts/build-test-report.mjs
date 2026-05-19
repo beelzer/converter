@@ -10,7 +10,121 @@
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync, spawnSync } from "node:child_process";
 import { unzipSync, gunzipSync } from "fflate";
+import hljs from "highlight.js";
+
+// Map artifact extension → highlight.js language id. Anything not in the map
+// falls back to hljs auto-detect, which is decent but not perfect.
+const HLJS_LANG = {
+  js: "javascript", mjs: "javascript",
+  ts: "typescript", tsx: "typescript", jsx: "javascript",
+  css: "css", scss: "scss",
+  html: "xml", htm: "xml",
+  json: "json", webmanifest: "json", manifest: "json",
+  yaml: "yaml", yml: "yaml",
+  xml: "xml",
+  toml: "ini",   // hljs has no toml grammar; ini is the closest visual match.
+  sql: "sql",
+  md: "markdown", markdown: "markdown",
+  sh: "bash",
+  py: "python", rb: "ruby", go: "go", rs: "rust",
+  // CSV/TSV are tabular; don't highlight, just render plain.
+};
+
+// ----------------------------------------------------------------------------
+// ffmpeg-driven enhancements (audio waveforms, image PSNR, video first-frame
+// comparison). All optional — if ffmpeg isn't on PATH, the report just omits
+// these and the rest still renders.
+// ----------------------------------------------------------------------------
+
+const FFMPEG_AVAILABLE = (() => {
+  try {
+    execFileSync("ffmpeg", ["-version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+function ffmpegRun(args, { verbose = false } = {}) {
+  // Run ffmpeg, return { stdout, stderr, ok } without throwing on non-zero.
+  // `verbose` raises the loglevel so summary lines from filters like psnr
+  // (which log at info level) make it into stderr.
+  const r = spawnSync(
+    "ffmpeg",
+    ["-y", "-hide_banner", "-loglevel", verbose ? "info" : "warning", ...args],
+    { encoding: "utf8" }
+  );
+  return {
+    stdout: r.stdout ?? "",
+    stderr: r.stderr ?? "",
+    ok: r.status === 0,
+  };
+}
+
+// Render a horizontal waveform PNG (600×80) for an audio file. Returns the
+// filename relative to the test directory, or null if unavailable.
+function generateWaveform(audioPath, outDir, outName) {
+  if (!FFMPEG_AVAILABLE) return null;
+  const outPath = join(outDir, outName);
+  // showwavespic renders one still PNG. split_channels=0 mixes to mono so
+  // mono / stereo files look comparable. Colors match the dark theme accent.
+  const r = ffmpegRun([
+    "-i", audioPath,
+    "-filter_complex", "showwavespic=s=600x80:colors=#20b2aa:split_channels=0",
+    "-frames:v", "1",
+    outPath,
+  ]);
+  if (!r.ok || !existsSync(outPath)) return null;
+  return outName;
+}
+
+// PSNR is roughly: >40 dB = visually identical, 30-40 = good, <30 = visible
+// degradation, "inf" = pixel-identical. Returns { psnr, dimsMatch } or null
+// if ffmpeg can't compute it (dimensions differ, decode failure, etc.).
+function comparePsnr(aPath, bPath) {
+  if (!FFMPEG_AVAILABLE) return null;
+  const r = ffmpegRun([
+    "-i", aPath,
+    "-i", bPath,
+    "-lavfi", "[0:v][1:v]psnr",
+    "-f", "null",
+    process.platform === "win32" ? "NUL" : "/dev/null",
+  ], { verbose: true });
+  // ffmpeg writes the PSNR summary on stderr like:
+  //   [Parsed_psnr_0 @ ...] PSNR y:32.123 u:34.456 v:35.789 average:33.123 ...
+  const summary = r.stderr.match(/PSNR[^\n]*average:([\d.]+|inf)/i);
+  if (!summary) return null;
+  const value = summary[1];
+  return { psnr: value === "inf" ? Infinity : parseFloat(value) };
+}
+
+// Extract the first video frame as PNG so we can compare frames between two
+// videos of any container/codec via comparePsnr().
+function extractFirstFrame(videoPath, outDir, outName) {
+  if (!FFMPEG_AVAILABLE) return null;
+  const outPath = join(outDir, outName);
+  const r = ffmpegRun([
+    "-i", videoPath,
+    "-frames:v", "1",
+    "-q:v", "2",
+    outPath,
+  ]);
+  if (!r.ok || !existsSync(outPath)) return null;
+  return outPath;
+}
+
+function fmtSimilarity(psnr) {
+  if (!isFinite(psnr)) return "identical pixels";
+  return `${psnr.toFixed(1)} dB PSNR`;
+}
+
+function similarityClass(psnr) {
+  if (!isFinite(psnr) || psnr >= 40) return "sim-great";
+  if (psnr >= 30) return "sim-good";
+  return "sim-degraded";
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -192,7 +306,20 @@ function renderArchiveContents(inspected, downloadHref, ext) {
   </div>`;
 }
 
+function highlightCode(body, ext) {
+  const lang = HLJS_LANG[ext];
+  try {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(body, { language: lang, ignoreIllegals: true }).value;
+    }
+  } catch {
+    // fall through to plain
+  }
+  return escapeHtml(body);
+}
+
 function renderArtifact(spec, slug, artifact) {
+  const fullPath = join(ARTIFACTS, spec, slug, artifact.name);
   const href = `${encodeURIComponent(spec)}/${encodeURIComponent(slug)}/${encodeURIComponent(artifact.name)}`;
   const ext = artifact.ext.toLowerCase();
   const label = escapeHtml(artifact.label);
@@ -218,7 +345,17 @@ function renderArtifact(spec, slug, artifact) {
   }
 
   if (AUDIO_EXTS.has(ext)) {
+    // Generate (or reuse) a waveform PNG so the audio gets a static
+    // visualisation we can place under the player.
+    const waveName = artifact.name.replace(/\.[^.]+$/, "") + ".waveform.png";
+    const waveFile = existsSync(join(ARTIFACTS, spec, slug, waveName))
+      ? waveName
+      : generateWaveform(fullPath, join(ARTIFACTS, spec, slug), waveName);
+    const waveHtml = waveFile
+      ? `<img class="waveform" src="${encodeURIComponent(spec)}/${encodeURIComponent(slug)}/${encodeURIComponent(waveFile)}" alt="${label} waveform" loading="lazy">`
+      : "";
     return `<figure class="art art-audio">${header}
+      ${waveHtml}
       <audio src="${href}" controls preload="metadata"></audio>
     </figure>`;
   }
@@ -233,21 +370,20 @@ function renderArtifact(spec, slug, artifact) {
   if (TEXT_EXTS.has(ext)) {
     let body;
     try {
-      const fullPath = join(ARTIFACTS, spec, slug, artifact.name);
       body = readFileSync(fullPath, "utf8");
     } catch {
       body = "(could not read file as text)";
     }
     const truncated = body.length > TEXT_PREVIEW_LIMIT;
     const display = truncated ? body.slice(0, TEXT_PREVIEW_LIMIT) + "\n…" : body;
+    const highlighted = highlightCode(display, ext);
     return `<figure class="art art-text">${header}
-      <pre><code>${escapeHtml(display)}</code></pre>
+      <pre><code class="hljs">${highlighted}</code></pre>
       ${truncated ? `<a class="art-fallback" href="${href}" target="_blank">View full file</a>` : ""}
     </figure>`;
   }
 
   if (ARCHIVE_EXTS.has(ext)) {
-    const fullPath = join(ARTIFACTS, spec, slug, artifact.name);
     const inspected = inspectArchive(fullPath, ext);
     if (!inspected) {
       // RAR / 7z / unsupported: fall back to download-only.
@@ -265,6 +401,54 @@ function renderArtifact(spec, slug, artifact) {
   </figure>`;
 }
 
+// Compute a similarity badge for a paired input/output of the same media kind.
+// Returns HTML or "" if comparison isn't possible / doesn't make sense.
+function renderSimilarityBadge(spec, slug, input, output) {
+  if (!FFMPEG_AVAILABLE) return "";
+  const inExt = input.ext.toLowerCase();
+  const outExt = output.ext.toLowerCase();
+  const dir = join(ARTIFACTS, spec, slug);
+
+  // Image ↔ Image: ffmpeg PSNR works directly across formats provided dims
+  // match. (If they don't, ffmpeg errors out and we return null.)
+  if (IMAGE_EXTS.has(inExt) && IMAGE_EXTS.has(outExt)) {
+    const sim = comparePsnr(join(dir, input.name), join(dir, output.name));
+    if (!sim) return "";
+    return `<div class="similarity ${similarityClass(sim.psnr)}">
+      <span class="sim-label">visual similarity</span>
+      <span class="sim-value">${fmtSimilarity(sim.psnr)}</span>
+    </div>`;
+  }
+
+  // Video ↔ Video: extract first frame from each as JPEGs, compare those.
+  if (VIDEO_EXTS.has(inExt) && VIDEO_EXTS.has(outExt)) {
+    const aFrame = extractFirstFrame(join(dir, input.name), dir, ".frame-in.jpg");
+    const bFrame = extractFirstFrame(join(dir, output.name), dir, ".frame-out.jpg");
+    if (!aFrame || !bFrame) return "";
+    const sim = comparePsnr(aFrame, bFrame);
+    if (!sim) return "";
+    return `<div class="similarity ${similarityClass(sim.psnr)}">
+      <span class="sim-label">first-frame similarity</span>
+      <span class="sim-value">${fmtSimilarity(sim.psnr)}</span>
+    </div>`;
+  }
+
+  // Video → image (e.g. Frames test): compare extracted-from-source first
+  // frame with the produced still.
+  if (VIDEO_EXTS.has(inExt) && IMAGE_EXTS.has(outExt)) {
+    const aFrame = extractFirstFrame(join(dir, input.name), dir, ".frame-in.jpg");
+    if (!aFrame) return "";
+    const sim = comparePsnr(aFrame, join(dir, output.name));
+    if (!sim) return "";
+    return `<div class="similarity ${similarityClass(sim.psnr)}">
+      <span class="sim-label">frame vs. source</span>
+      <span class="sim-value">${fmtSimilarity(sim.psnr)}</span>
+    </div>`;
+  }
+
+  return "";
+}
+
 function renderTest(spec, entry) {
   const { meta, slug } = entry;
   const inputs = meta.inputs ?? [];
@@ -276,9 +460,17 @@ function renderTest(spec, entry) {
       ${arts.map((a) => renderArtifact(spec, slug, a)).join("\n")}
     </div>`;
 
+  // If there's exactly one input and one output, attempt a similarity badge
+  // for the test. Most tests fit this 1:1 shape; for merges (N → 1) we skip.
+  let badge = "";
+  if (inputs.length === 1 && outputs.length === 1) {
+    badge = renderSimilarityBadge(spec, slug, inputs[0], outputs[0]);
+  }
+
   return `<article class="test" id="${escapeHtml(`${spec}-${slug}`)}">
     <h3>${escapeHtml(meta.title)}</h3>
     ${meta.notes ? `<p class="notes">${escapeHtml(meta.notes)}</p>` : ""}
+    ${badge}
     <div class="cols">
       ${renderColumn("Inputs", inputs)}
       ${renderColumn("Outputs", outputs)}
@@ -419,6 +611,13 @@ h2 .count { color: var(--fg-dim); margin-left: 0.5rem; font-weight: normal; }
   background-position: 0 0, 0 10px, 10px -10px, -10px 0;
 }
 .art-video video, .art-audio audio { display: block; width: 100%; }
+.waveform {
+  display: block;
+  width: 100%;
+  height: 80px;
+  background: #0a0d11;
+  border-bottom: 1px solid var(--border);
+}
 .art-pdf embed { display: block; width: 100%; min-height: 500px; background: #fff; }
 .art-text pre {
   margin: 0;
@@ -489,6 +688,56 @@ h2 .count { color: var(--fg-dim); margin-left: 0.5rem; font-weight: normal; }
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Similarity badge shown above the input/output columns */
+.similarity {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.9rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.similarity .sim-label {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.65rem;
+  color: var(--fg-dim);
+}
+.similarity .sim-value { color: var(--fg); }
+.similarity.sim-great { border-color: rgba(63, 185, 80, 0.5); }
+.similarity.sim-great .sim-value { color: #3fb950; }
+.similarity.sim-good  { border-color: rgba(210, 153, 34, 0.5); }
+.similarity.sim-good  .sim-value { color: #d29922; }
+.similarity.sim-degraded { border-color: rgba(248, 81, 73, 0.5); }
+.similarity.sim-degraded .sim-value { color: #f85149; }
+
+/* highlight.js — github-dark-ish palette, tuned to the report colors. */
+.hljs { color: var(--fg); background: transparent; }
+.hljs-comment, .hljs-quote { color: #8b949e; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal,
+.hljs-name, .hljs-tag .hljs-name { color: #ff7b72; }
+.hljs-string, .hljs-attr, .hljs-attribute,
+.hljs-doctag, .hljs-regexp { color: #a5d6ff; }
+.hljs-number, .hljs-symbol, .hljs-bullet,
+.hljs-meta, .hljs-deletion { color: #79c0ff; }
+.hljs-built_in, .hljs-builtin-name, .hljs-type,
+.hljs-class .hljs-title, .hljs-section { color: #ffa657; }
+.hljs-title, .hljs-title.function_, .hljs-title.class_,
+.hljs-variable, .hljs-template-variable { color: #d2a8ff; }
+.hljs-params { color: var(--fg); }
+.hljs-tag, .hljs-tag .hljs-attr, .hljs-tag .hljs-string { color: var(--fg-dim); }
+.hljs-property, .hljs-attr { color: #79c0ff; }
+.hljs-selector-class, .hljs-selector-id, .hljs-selector-pseudo,
+.hljs-selector-attr { color: #ffa657; }
+.hljs-attribute { color: #79c0ff; }
+.hljs-punctuation { color: var(--fg-dim); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: bold; }
 .art-fallback {
   display: block;
   padding: 0.5rem 0.8rem;
