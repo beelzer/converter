@@ -7,9 +7,10 @@ interface Props {
   canonicalPath?: string;
   ogImage?: string;
   schema?: object | object[];
+  noindex?: boolean;
 }
 
-const { title, description, canonicalPath, ogImage, schema } = Astro.props;
+const { title, description, canonicalPath, ogImage, schema, noindex } = Astro.props;
 const siteUrl = "https://tools.dcln.me";
 const canonical = canonicalPath ? new URL(canonicalPath, siteUrl).toString() : new URL(Astro.url.pathname, siteUrl).toString();
 const image = ogImage ?? `${siteUrl}/og-default.png`;
@@ -30,6 +31,7 @@ const CF_BEACON_TOKEN = "71a3ecfaa07f456f8516ad6b2c3e225c";
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex" />}
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 

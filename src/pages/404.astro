@@ -1,0 +1,59 @@
+---
+import ToolLayout from "../components/ToolLayout.astro";
+
+const tools = [
+  { slug: "pdf", name: "PDF", blurb: "Merge, split, rotate, organize, convert" },
+  { slug: "image", name: "Image", blurb: "Convert, resize, compress, favicon, EXIF" },
+  { slug: "audio-video", name: "Audio / Video", blurb: "Convert, trim, GIF, extract audio, frames, merge" },
+];
+---
+
+<ToolLayout
+  title="404 — Page not found | tools.dcln.me"
+  description="The page you're looking for doesn't exist. Pick a tool from the list and keep going."
+  noindex
+>
+  <section class="mx-auto max-w-2xl px-6 pt-16 sm:pt-24 pb-12 text-center">
+    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-3 uppercase tracking-widest">
+      <span class="text-[var(--color-danger)]">●</span> 404
+    </p>
+    <h1 class="font-mono text-3xl sm:text-5xl font-semibold leading-tight">
+      Page not found.
+    </h1>
+    <p class="mt-4 text-lg text-[var(--color-fg-muted)] leading-relaxed">
+      The URL you followed doesn&rsquo;t match anything on this site. The site is still small &mdash; here are the tools that exist today.
+    </p>
+  </section>
+
+  <section class="mx-auto max-w-2xl px-6 pb-20" aria-labelledby="tools-heading">
+    <h2 id="tools-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
+      Available tools
+    </h2>
+    <ul class="grid gap-3 sm:grid-cols-1">
+      {tools.map((tool) => (
+        <li>
+          <a
+            href={`/${tool.slug}`}
+            class="group block p-4 border border-[var(--color-border)] rounded-md bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-2)] transition-colors"
+          >
+            <div class="flex items-baseline justify-between mb-1">
+              <h3 class="font-mono text-base font-semibold text-[var(--color-fg)]">
+                /{tool.slug}
+              </h3>
+              <span class="font-mono text-xs text-[var(--color-fg-dim)] group-hover:text-[var(--color-accent)]">
+                {tool.name} →
+              </span>
+            </div>
+            <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
+              {tool.blurb}
+            </p>
+          </a>
+        </li>
+      ))}
+    </ul>
+
+    <p class="mt-8 font-mono text-xs text-[var(--color-fg-dim)] text-center">
+      <a href="/" class="hover:text-[var(--color-fg)]">← back to home</a>
+    </p>
+  </section>
+</ToolLayout>
