@@ -14,6 +14,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { unzipSync, gunzipSync } from "fflate";
 import hljs from "highlight.js";
 import { diffLines, diffWordsWithSpace } from "diff";
+import mammoth from "mammoth";
 
 // Map artifact extension → highlight.js language id. Anything not in the map
 // falls back to hljs auto-detect, which is decent but not perfect.
@@ -120,6 +121,36 @@ function generateWaveform(mediaPath, outDir, outName) {
   ]);
   if (!r.ok || !existsSync(outPath)) return null;
   return outName;
+}
+
+// Pre-render every DOCX artifact to a sidecar HTML file using mammoth, so
+// the sync renderer can embed it inline. Browsers don't natively render
+// .docx, but mammoth's HTML output preserves headings, lists, bold/italic.
+async function prepareDocxPreviews(groups) {
+  const tasks = [];
+  for (const [spec, entries] of groups) {
+    for (const entry of entries) {
+      const all = [
+        ...(entry.meta.inputs ?? []),
+        ...(entry.meta.outputs ?? []),
+      ];
+      for (const art of all) {
+        if (art.ext?.toLowerCase() !== "docx") continue;
+        const docxPath = join(ARTIFACTS, spec, entry.slug, art.name);
+        const previewPath = docxPath + ".preview.html";
+        if (existsSync(previewPath)) continue;
+        tasks.push(
+          mammoth
+            .convertToHtml({ path: docxPath })
+            .then((r) => writeFileSync(previewPath, r.value))
+            .catch((err) =>
+              console.warn(`docx preview failed for ${docxPath}: ${err.message}`)
+            )
+        );
+      }
+    }
+  }
+  if (tasks.length > 0) await Promise.all(tasks);
 }
 
 function hasAudioStream(mediaPath) {
@@ -395,8 +426,60 @@ function renderUnifiedDiff(inputBody, outputBody) {
   // Body: word + whitespace diff. Kept tokens render as plain text so the
   // "content transferred through" is visible; only the genuine changes get
   // red / green inline highlights.
-  const html = diffWordsWithSpace(inputBody, outputBody)
+  //
+  // Adjacent del+ins pairs whose word content matches case-insensitively
+  // (e.g. sql-formatter's `select` → `SELECT`) collapse into a single
+  // muted "case-swap" pill — otherwise SQL beautify drowns in red/green
+  // when every keyword's case changes. Surrounding whitespace differences
+  // are split out and surfaced as their own ins/del so structure changes
+  // still register.
+  const splitWs = (s) => {
+    const m = s.match(/^(\s*)([\s\S]*?)(\s*)$/);
+    return { lead: m ? m[1] : "", core: m ? m[2] : s, trail: m ? m[3] : "" };
+  };
+
+  const raw = diffWordsWithSpace(inputBody, outputBody);
+  const merged = [];
+  for (let i = 0; i < raw.length; i++) {
+    const a = raw[i];
+    const b = raw[i + 1];
+    if (a && b && (a.removed || a.added) && (b.removed || b.added) && a.added !== b.added) {
+      const del = a.removed ? a : b;
+      const ins = a.added ? a : b;
+      const delP = splitWs(del.value);
+      const insP = splitWs(ins.value);
+      if (
+        delP.core.length > 0 &&
+        delP.core.toLowerCase() === insP.core.toLowerCase() &&
+        delP.core !== insP.core
+      ) {
+        // Case-only swap on the cores; emit any whitespace deltas around
+        // it on either side so structural edits aren't silently dropped.
+        if (delP.lead === insP.lead) {
+          if (delP.lead) merged.push({ value: delP.lead });
+        } else {
+          if (delP.lead) merged.push({ removed: true, value: delP.lead });
+          if (insP.lead) merged.push({ added: true, value: insP.lead });
+        }
+        merged.push({ caseSwap: true, value: insP.core });
+        if (delP.trail === insP.trail) {
+          if (delP.trail) merged.push({ value: delP.trail });
+        } else {
+          if (delP.trail) merged.push({ removed: true, value: delP.trail });
+          if (insP.trail) merged.push({ added: true, value: insP.trail });
+        }
+        i++; // consume both halves
+        continue;
+      }
+    }
+    merged.push(a);
+  }
+
+  const html = merged
     .map((c) => {
+      if (c.caseSwap) {
+        return `<span class="diff-case" title="case change">${escapeHtml(c.value)}</span>`;
+      }
       const text = escapeHtml(c.value);
       if (c.added) return `<ins>${text}</ins>`;
       if (c.removed) return `<del>${text}</del>`;
@@ -470,6 +553,24 @@ function renderArtifact(spec, slug, artifact) {
     return `<figure class="art art-pdf">${header}
       <embed src="${href}" type="application/pdf" width="100%" height="500">
       <a class="art-fallback" href="${href}" target="_blank">Open PDF in new tab</a>
+    </figure>`;
+  }
+
+  if (ext === "docx") {
+    // prepareDocxPreviews() ran mammoth in the async pre-pass and wrote a
+    // sidecar .docx.preview.html. Embed it for an inline preview that looks
+    // like Word's rendering — semantic HTML on a paper-white surface so it
+    // pops against the dark report.
+    const previewPath = fullPath + ".preview.html";
+    if (existsSync(previewPath)) {
+      const inner = readFileSync(previewPath, "utf8");
+      return `<figure class="art art-docx">${header}
+        <div class="docx-preview">${inner}</div>
+        <a class="art-fallback" href="${href}" target="_blank">Download .docx</a>
+      </figure>`;
+    }
+    return `<figure class="art art-docx">${header}
+      <div class="art-binary">DOCX — <a href="${href}" target="_blank">download</a></div>
     </figure>`;
   }
 
@@ -800,6 +901,26 @@ h2 .count { color: var(--fg-dim); margin-left: 0.5rem; font-weight: normal; }
   border-bottom: 1px solid var(--border);
 }
 .art-pdf embed { display: block; width: 100%; min-height: 500px; background: #fff; }
+.docx-preview {
+  background: #fff;
+  color: #111;
+  padding: 1.25rem 1.5rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  max-height: 500px;
+  overflow: auto;
+}
+.docx-preview *:first-child { margin-top: 0; }
+.docx-preview h1 { font-size: 1.45rem; margin: 0 0 0.75rem; color: #111; }
+.docx-preview h2 { font-size: 1.2rem; margin: 1rem 0 0.5rem; color: #111; }
+.docx-preview h3 { font-size: 1.05rem; margin: 0.9rem 0 0.4rem; color: #111; }
+.docx-preview p  { margin: 0.5rem 0; }
+.docx-preview ul, .docx-preview ol { margin: 0.5rem 0 0.5rem 1.5rem; }
+.docx-preview a { color: #0969da; }
+.docx-preview table { border-collapse: collapse; margin: 0.75rem 0; }
+.docx-preview td, .docx-preview th { border: 1px solid #d0d7de; padding: 0.3rem 0.6rem; }
+.docx-preview img { max-width: 100%; height: auto; }
 .art-text pre {
   margin: 0;
   padding: 0.8rem 1rem;
@@ -959,6 +1080,16 @@ h2 .count { color: var(--fg-dim); margin-left: 0.5rem; font-weight: normal; }
   padding: 1px 2px;
   box-shadow: inset 0 -1px 0 rgba(248, 81, 73, 0.45);
 }
+/* Case-only swap (e.g. sql-formatter's select → SELECT). Render the new
+   value with a muted blue highlight so it's flagged as "changed" without
+   contributing to the red/green noise. */
+.diff-tokens .diff-case {
+  background: rgba(125, 156, 245, 0.18);
+  color: #79c0ff;
+  border-radius: 2px;
+  padding: 1px 2px;
+  box-shadow: inset 0 -1px 0 rgba(125, 156, 245, 0.45);
+}
 /* Make whitespace-only edits visible: a tiny pill is hard to miss
    even when there's no glyph inside. */
 .diff-tokens ins:empty,
@@ -1064,7 +1195,7 @@ function renderHtml(groups) {
 `;
 }
 
-function main() {
+async function main() {
   if (!existsSync(ARTIFACTS)) {
     console.error(`No test-artifacts/ directory. Run \`npm run test:e2e\` first.`);
     process.exit(1);
@@ -1074,6 +1205,9 @@ function main() {
     console.error("test-artifacts/ exists but contains no meta.json files.");
     process.exit(1);
   }
+  // Pre-generate sidecar previews that need async work (DOCX → HTML via
+  // mammoth). The sync renderer below just reads the sidecars.
+  await prepareDocxPreviews(groups);
   const html = renderHtml(groups);
   const out = join(ARTIFACTS, "index.html");
   writeFileSync(out, html);
@@ -1087,4 +1221,7 @@ function main() {
   console.log(`  Open it in a browser to review ${total} tests.`);
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
