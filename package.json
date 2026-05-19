@@ -1,9 +1,9 @@
 {
-  "name": "converter",
+  "name": "tools",
   "type": "module",
   "version": "0.0.1",
   "private": true,
-  "description": "Free file conversion tools that run entirely in your browser. No uploads, no accounts, no ads.",
+  "description": "Free file tools that run entirely in your browser. No uploads, no accounts, no ads.",
   "license": "MIT",
   "engines": {
     "node": ">=22.12.0"

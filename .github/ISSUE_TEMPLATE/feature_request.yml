@@ -7,7 +7,7 @@ body:
     id: description
     attributes:
       label: Description
-      description: What would you like to see added or changed? If it's a new tool, what does it convert?
+      description: What would you like to see added or changed? If it's a new tool or mode, what does it do?
     validations:
       required: true
 
@@ -25,7 +25,7 @@ body:
       label: In-browser feasibility check
       description: Every tool here runs entirely in the browser. Tick what applies.
       options:
-        - label: A pure-JS library exists for this conversion (e.g. on npm)
+        - label: A pure-JS library exists for this operation (e.g. on npm)
         - label: A WASM port exists (e.g. for native libraries like libheif, ffmpeg)
         - label: Browser Canvas / WebCodecs / File System Access APIs are sufficient
         - label: Not sure — please assess

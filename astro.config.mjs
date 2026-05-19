@@ -7,7 +7,7 @@ import sitemap from '@astrojs/sitemap';
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://convert.dcln.me',
+  site: 'https://tools.dcln.me',
   vite: {
     plugins: [tailwindcss()],
     worker: {

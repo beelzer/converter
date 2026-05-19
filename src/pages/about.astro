@@ -3,8 +3,8 @@ import ToolLayout from "../components/ToolLayout.astro";
 ---
 
 <ToolLayout
-  title="About convert.dcln.me — File tools that run in your browser"
-  description="A small collection of free file conversion tools that run entirely in your browser. No uploads, no accounts, no ads, no tracking. Open source under MIT."
+  title="About tools.dcln.me — File tools that run in your browser"
+  description="A small collection of free file tools that run entirely in your browser. No uploads, no accounts, no ads, no tracking. Open source under MIT."
 >
   <section class="mx-auto max-w-2xl px-6 pt-12 sm:pt-16 pb-16">
     <h1 class="font-mono text-3xl sm:text-4xl font-semibold leading-tight mb-6">
@@ -13,12 +13,12 @@ import ToolLayout from "../components/ToolLayout.astro";
 
     <div class="space-y-5 text-[var(--color-fg-muted)] leading-relaxed">
       <p>
-        <span class="text-[var(--color-fg)]">convert.dcln.me</span> is a small collection of file conversion tools.
+        <span class="text-[var(--color-fg)]">tools.dcln.me</span> is a small collection of file tools — convert, edit, optimize.
         The defining property: every tool runs entirely in your browser. Your files are never uploaded to any server.
       </p>
 
       <p>
-        Most online converters work by uploading your file to a server, processing it there, and offering you the result.
+        Most online file tools work by uploading your file to a server, processing it there, and offering you the result.
         That works, but it means your file briefly lives on someone else&rsquo;s machine. The privacy promises are typically
         &ldquo;we delete it after an hour&rdquo; — not &ldquo;we never had it.&rdquo;
       </p>
@@ -40,19 +40,19 @@ import ToolLayout from "../components/ToolLayout.astro";
 
       <h2 class="font-mono text-base text-[var(--color-fg)] pt-4">How to verify the no-upload claim</h2>
       <p>
-        Open your browser&rsquo;s developer tools (usually F12), switch to the Network tab, and clear it. Then pick your files and run the conversion.
+        Open your browser&rsquo;s developer tools (usually F12), switch to the Network tab, and clear it. Then pick your files and run the tool.
         You&rsquo;ll see no requests fire when the work actually happens. You can also disconnect your wifi after the page has loaded — the tools keep working.
       </p>
 
       <h2 class="font-mono text-base text-[var(--color-fg)] pt-4">Open source</h2>
       <p>
-        The full source is on GitHub at <a href="https://github.com/beelzer/converter" rel="noopener noreferrer" target="_blank">github.com/beelzer/converter</a>
+        The full source is on GitHub at <a href="https://github.com/beelzer/tools" rel="noopener noreferrer" target="_blank">github.com/beelzer/tools</a>
         under the MIT license. Fork it, host your own copy, or audit the code yourself.
       </p>
 
       <h2 class="font-mono text-base text-[var(--color-fg)] pt-4">Tech stack</h2>
       <p class="font-mono text-sm">
-        Astro · Preact · Tailwind · pdf-lib · Cloudflare Workers · R2
+        Astro · Preact · Tailwind · pdf-lib · pdf.js · libheif-js · Cloudflare Workers · R2
       </p>
     </div>
   </section>

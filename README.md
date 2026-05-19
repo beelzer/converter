@@ -1,13 +1,13 @@
-# converter
+# tools
 
-Free file conversion tools that run entirely in your browser.
-Live at **[convert.dcln.me](https://convert.dcln.me)**.
+Free file tools that run entirely in your browser.
+Live at **[tools.dcln.me](https://tools.dcln.me)**.
 
 No uploads. No accounts. No ads. No cookies. Open source under MIT.
 
 ## Why
 
-Most online converters upload your file to a server, process it there, and offer
+Most online file tools upload your file to a server, process it there, and offer
 you the result. The privacy promises are typically *"we delete it after an hour"*
 — not *"we never had it."*
 
@@ -15,33 +15,36 @@ Modern browsers can do this work locally. So that's what these tools do.
 
 ## Tools
 
-| Slug                | Status | Notes                                        |
-| ------------------- | ------ | -------------------------------------------- |
-| `pdf-merger`        | live   | Combine multiple PDFs in-browser via pdf-lib |
-| `heic-to-jpg`       | soon   | Will use libheif-js (WASM)                   |
-| `pdf-splitter`      | soon   | Shares logic with merger                     |
-| `image-converter`   | soon   | Canvas-only, PNG ↔ JPG ↔ WebP ↔ AVIF         |
-| `favicon-generator` | soon   | One image in, complete bundle out            |
-| `csv-json-yaml`     | soon   | Pure JS, sticky for developers               |
+| Slug          | Status | Modes                                                                        |
+| ------------- | ------ | ---------------------------------------------------------------------------- |
+| `pdf`         | live   | Merge, split, rotate, organize, images→PDF, PDF→images                       |
+| `image`       | live   | Convert, resize, compress, favicon bundle, strip EXIF, SVG→raster            |
+| `data`        | soon   | CSV / JSON / YAML / XML / TOML / Excel — convert, format, validate, type-gen |
+| `audio-video` | soon   | WebCodecs-based audio + video conversion, trim, compress, extract audio      |
+
+Each product family lives at a single URL (`/pdf`, `/image`, etc.) with operations exposed as tabs inside the tool. No per-operation URLs — one hub per product.
 
 ## Stack
 
 - **[Astro 6](https://astro.build/)** — multi-page output, islands architecture
 - **[Preact](https://preactjs.com/)** — interactive widgets (~10 KB instead of React's ~45 KB)
 - **[Tailwind v4](https://tailwindcss.com/)** — via the `@tailwindcss/vite` plugin
-- **[pdf-lib](https://pdf-lib.js.org/)** — PDF manipulation
+- **[pdf-lib](https://pdf-lib.js.org/)** + **[pdfjs-dist](https://github.com/mozilla/pdf.js)** — PDF write + read
+- **[fflate](https://github.com/101arrowz/fflate)** — ZIP packaging for multi-file outputs
+- **[libheif-js](https://github.com/catdad-experiments/libheif-js)** + **[@jsquash/avif](https://github.com/jamsinclair/jSquash)** + **[utif2](https://github.com/twardoch/utif2)** — image codecs not natively supported by the browser
 - **[Cloudflare Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/)** — hosting
 - **[Cloudflare R2](https://developers.cloudflare.com/r2/)** at `cdn.dcln.me` — for WASM blobs that exceed the 25 MiB per-asset cap
 
 ## Local development
 
-Node 20+ required.
+Node 22+ required.
 
 ```sh
 npm install
 npm run dev      # local dev server at http://localhost:4321
 npm run build    # production build → dist/
 npm run preview  # serve the production build locally
+npm run test:e2e # Playwright suite
 ```
 
 ## Deploy
@@ -57,39 +60,33 @@ npx wrangler deploy
 `wrangler.toml` configures the asset directory and the `not_found_handling`
 strategy.
 
-### Web Analytics token
+## Adding a new mode to an existing tool
 
-Once the Cloudflare Workers project is created, set the Web Analytics beacon
-token as an environment variable:
+Modes share a hub (`PdfHub.tsx`, `ImageHub.tsx`, …). To add one:
 
-```sh
-# in your .env (gitignored) or as a Workers project variable
-PUBLIC_CF_BEACON_TOKEN=<your token>
-```
+1. **Library** at `src/lib/<area>/<op>.ts` — framework-agnostic, unit-testable.
+2. **Worker** at `src/lib/<area>/<op>.worker.ts` if the work is heavier than ~50 ms — wraps the lib in a `postMessage` interface.
+3. **Panel** at `src/components/tools/<PanelName>.tsx` — Preact, manages its own state, uses `FileDropZone` + `lib/util/file` helpers.
+4. **Register in hub** — add a `Mode` literal and a `ModeSpec` blurb to the hub component, plus a conditional render block.
+5. **E2E** — extend the relevant `e2e/<hub>.spec.ts` with a tab-click + round-trip test.
 
-The `ToolLayout.astro` includes the beacon script only if this is set.
+## Adding a new product family
 
-## Adding a new tool
-
-Each tool follows this exact pattern. It's mechanical.
-
-1. **Page** at `src/pages/<tool-slug>.astro` — uses `ToolLayout.astro`, sets title/description targeting a privacy-qualified mid-tail keyword (e.g. *"merge pdf without uploading"*), includes long-form explainer content plus `HowTo` + `FAQPage` JSON-LD schemas.
-2. **Widget** at `src/components/tools/<ToolName>.tsx` — Preact, hydrated `client:load`. Lazy-load any heavy library on user intent (never on page load). All conversion work runs in a Web Worker.
-3. **Logic** at `src/lib/<area>/<tool>.ts` — framework-agnostic, unit-testable.
-4. **Worker** at `src/lib/<area>/<tool>.worker.ts` — wraps the lib in a `postMessage` interface.
-5. **Homepage card** in `src/pages/index.astro` — add to the `tools` array, status `"live"`.
-6. **Sitemap** is automatic.
-7. **README** — add a row to the Tools table above.
-8. **If WASM > 1 MB** — upload to R2 at `cdn.dcln.me/<lib-name>/<version>/<file>` and load from there. Pin the version. Example:
+1. **Hub** at `src/components/tools/<Family>Hub.tsx` modelled on `PdfHub.tsx`.
+2. **Page** at `src/pages/<family>.astro` — uses `ToolLayout.astro`, sets title/description, includes `HowTo` + `FAQPage` + `BreadcrumbList` JSON-LD.
+3. **Homepage card** in `src/pages/index.astro` — add to the `tools` array, status `"live"`.
+4. **E2E** at `e2e/<family>.spec.ts`.
+5. **Sitemap** is automatic.
+6. **If WASM > 1 MB** — upload to R2 at `cdn.dcln.me/<lib-name>/<version>/<file>` and load from there. Pin the version.
    ```sh
-   wrangler r2 object put dcln-assets/libheif/1.17.1/libheif.wasm --file=./libheif.wasm
+   wrangler r2 object put dcln-assets/libheif/1.19.8/libheif.wasm --file=./libheif.wasm
    ```
 
 ### Non-negotiables for every tool
 
 - Lighthouse ≥95 across Performance, Accessibility, Best Practices, SEO. Release blocker.
 - Drag-and-drop must have a keyboard-accessible fallback (visible click-to-select button, arrow buttons for reordering).
-- ARIA live region for conversion progress and completion.
+- ARIA live region for progress and completion.
 - "Files never leave your browser" copy visible above the fold.
 - No third-party scripts beyond Cloudflare Web Analytics. No cookie banner.
 
@@ -103,11 +100,11 @@ type(optional-scope): short description
 
 **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `ci`, `chore`, `test`, `build`, `revert`.
 
-For new tools (the dominant change here), use the tool slug as the scope:
+For new modes, use the family slug as the scope:
 
 ```text
-feat(heic-to-jpg): initial implementation
-fix(pdf-merger): handle password-protected PDFs gracefully
+feat(image): add SVG → raster mode
+fix(pdf): handle password-protected PDFs gracefully
 ci: bump lighthouse threshold to error-level 0.95
 ```
 

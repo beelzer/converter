@@ -1,5 +1,5 @@
 // Modelled on beelzer/dcln's eslint.config.js, with jsx-a11y added for TSX
-// since accessibility is a release-blocking concern for converter.
+// since accessibility is a release-blocking concern for tools.dcln.me.
 import eslintPluginAstro from 'eslint-plugin-astro';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
