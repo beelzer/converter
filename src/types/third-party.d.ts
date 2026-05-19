@@ -29,6 +29,22 @@ declare module "piexifjs" {
   export default piexif;
 }
 
+declare module "mammoth/mammoth.browser.js" {
+  interface MammothResult {
+    value: string;
+    messages: { type: string; message: string }[];
+  }
+  interface MammothModule {
+    convertToHtml(
+      input: { arrayBuffer: ArrayBuffer },
+      options?: unknown
+    ): Promise<MammothResult>;
+    extractRawText(input: { arrayBuffer: ArrayBuffer }): Promise<MammothResult>;
+  }
+  const mammoth: MammothModule;
+  export default mammoth;
+}
+
 declare module "gifenc" {
   export interface GifEncoder {
     writeFrame(
