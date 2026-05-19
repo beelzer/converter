@@ -321,59 +321,101 @@ function inspectArchive(filePath, ext) {
   return { entries: decorated, totalBytes };
 }
 
-// File-type icons sourced from VS Code's Material Icon Theme (MIT-licensed,
-// https://github.com/PKief/vscode-material-icon-theme). Downloaded once into
-// node_modules/.cache/file-icons/ on first run and inlined in the report
-// thereafter, so the rendered HTML stays self-contained.
-const ICON_BASE_URL =
+// File-type icons. Branded formats use Simple Icons (CC0-licensed brand-mark
+// SVG paths from https://github.com/simple-icons/simple-icons — trademarks
+// belong to their original owners; Simple Icons explicitly releases the SVG
+// path data as CC0 for exactly this kind of nominative use). Generic formats
+// without a strong brand fall back to VS Code's Material Icon Theme (MIT).
+// Both are downloaded on first run into scripts/file-icons/ (committed in the
+// repo) and inlined in the report so the rendered HTML stays self-contained.
+const SIMPLE_ICONS_BASE = "https://cdn.jsdelivr.net/npm/simple-icons@latest/icons";
+const MATERIAL_ICONS_BASE =
   "https://raw.githubusercontent.com/PKief/vscode-material-icon-theme/main/icons";
-const ICON_CACHE_DIR = join(ROOT, "node_modules", ".cache", "file-icons");
+const ICON_DIR = resolve(__dirname, "file-icons");
 
-// Map extension → material-icon-theme icon name. Multiple extensions can
-// share an icon (mp4/webm/mov/mkv → video, etc.).
-const EXT_TO_ICON_NAME = {
-  pdf: "pdf",
-  doc: "word", docx: "word",
-  xls: "excel", xlsx: "excel",
-  csv: "table", tsv: "table",
-  json: "json",
-  yaml: "yaml", yml: "yaml",
-  xml: "xml",
-  toml: "toml",
-  html: "html", htm: "html",
-  css: "css",
-  scss: "sass",
-  js: "javascript", mjs: "javascript", jsx: "react",
-  ts: "typescript", tsx: "react_ts",
-  sql: "database",
-  zip: "zip", tar: "zip", gz: "zip", tgz: "zip", rar: "zip", "7z": "zip",
-  mp4: "video", webm: "video", mov: "video", mkv: "video",
-  mp3: "audio", wav: "audio", ogg: "audio", flac: "audio", aac: "audio",
-  png: "image", jpg: "image", jpeg: "image", gif: "image",
-  webp: "image", bmp: "image", ico: "image",
-  svg: "svg",
-  md: "markdown", markdown: "markdown",
-  txt: "document",
-  log: "log",
-  webmanifest: "manifest",
+// Each extension maps to a source ("simple" | "material") + icon slug.
+// Simple Icons paths have no fill, so we apply the brand `color`. Material
+// Icon Theme icons already include their own colored paths.
+const ICON_MAP = {
+  // Branded — Simple Icons
+  pdf:     { src: "simple",   slug: "adobeacrobatreader", color: "#EC1C24" },
+  doc:     { src: "simple",   slug: "microsoftword",      color: "#2B579A" },
+  docx:    { src: "simple",   slug: "microsoftword",      color: "#2B579A" },
+  xls:     { src: "simple",   slug: "microsoftexcel",     color: "#217346" },
+  xlsx:    { src: "simple",   slug: "microsoftexcel",     color: "#217346" },
+  csv:     { src: "simple",   slug: "microsoftexcel",     color: "#217346" },
+  tsv:     { src: "simple",   slug: "microsoftexcel",     color: "#217346" },
+  ppt:     { src: "simple",   slug: "microsoftpowerpoint", color: "#B7472A" },
+  pptx:    { src: "simple",   slug: "microsoftpowerpoint", color: "#B7472A" },
+  yaml:    { src: "simple",   slug: "yaml",               color: "#CB171E" },
+  yml:     { src: "simple",   slug: "yaml",               color: "#CB171E" },
+  toml:    { src: "simple",   slug: "toml",               color: "#9C4121" },
+  html:    { src: "simple",   slug: "html5",              color: "#E34F26" },
+  htm:     { src: "simple",   slug: "html5",              color: "#E34F26" },
+  css:     { src: "simple",   slug: "css3",               color: "#1572B6" },
+  scss:    { src: "simple",   slug: "sass",               color: "#CC6699" },
+  js:      { src: "simple",   slug: "javascript",         color: "#F7DF1E" },
+  mjs:     { src: "simple",   slug: "javascript",         color: "#F7DF1E" },
+  ts:      { src: "simple",   slug: "typescript",         color: "#3178C6" },
+  jsx:     { src: "simple",   slug: "react",              color: "#61DAFB" },
+  tsx:     { src: "simple",   slug: "react",              color: "#61DAFB" },
+  svg:     { src: "simple",   slug: "svg",                color: "#FFB13B" },
+  // Generic — Material Icon Theme (own colored designs)
+  json:    { src: "material", slug: "json" },
+  xml:     { src: "material", slug: "xml" },
+  md:      { src: "material", slug: "markdown" },
+  markdown:{ src: "material", slug: "markdown" },
+  sql:     { src: "material", slug: "database" },
+  zip:     { src: "material", slug: "zip" },
+  tar:     { src: "material", slug: "zip" },
+  gz:      { src: "material", slug: "zip" },
+  tgz:    { src: "material", slug: "zip" },
+  rar:     { src: "material", slug: "zip" },
+  "7z":    { src: "material", slug: "zip" },
+  mp4:     { src: "material", slug: "video" },
+  webm:    { src: "material", slug: "video" },
+  mov:     { src: "material", slug: "video" },
+  mkv:     { src: "material", slug: "video" },
+  mp3:     { src: "material", slug: "audio" },
+  wav:     { src: "material", slug: "audio" },
+  ogg:     { src: "material", slug: "audio" },
+  flac:    { src: "material", slug: "audio" },
+  aac:     { src: "material", slug: "audio" },
+  png:     { src: "material", slug: "image" },
+  jpg:     { src: "material", slug: "image" },
+  jpeg:    { src: "material", slug: "image" },
+  gif:     { src: "material", slug: "image" },
+  webp:    { src: "material", slug: "image" },
+  bmp:     { src: "material", slug: "image" },
+  ico:     { src: "material", slug: "image" },
+  txt:     { src: "material", slug: "document" },
+  log:     { src: "material", slug: "log" },
+  webmanifest: { src: "material", slug: "manifest" },
 };
 
+const ICON_FALLBACK = { src: "material", slug: "document" };
+
 async function ensureIconCache() {
-  mkdirSync(ICON_CACHE_DIR, { recursive: true });
-  const wanted = new Set(Object.values(EXT_TO_ICON_NAME));
-  wanted.add("document"); // generic fallback
+  mkdirSync(ICON_DIR, { recursive: true });
+  // De-duplicate by source+slug so an icon used by many extensions is fetched
+  // only once.
+  const wanted = new Map();
+  for (const cfg of [ICON_FALLBACK, ...Object.values(ICON_MAP)]) {
+    wanted.set(`${cfg.src}.${cfg.slug}`, cfg);
+  }
   const missing = [...wanted].filter(
-    (name) => !existsSync(join(ICON_CACHE_DIR, `${name}.svg`))
+    ([key]) => !existsSync(join(ICON_DIR, `${key}.svg`))
   );
   if (missing.length === 0) return;
-  console.log(`  fetching ${missing.length} material-icon-theme icons…`);
+  console.log(`  fetching ${missing.length} file-type icons…`);
   await Promise.all(
-    missing.map(async (name) => {
+    missing.map(async ([key, cfg]) => {
+      const base = cfg.src === "simple" ? SIMPLE_ICONS_BASE : MATERIAL_ICONS_BASE;
       try {
-        const res = await fetch(`${ICON_BASE_URL}/${name}.svg`);
+        const res = await fetch(`${base}/${cfg.slug}.svg`);
         if (!res.ok) return;
         const text = await res.text();
-        writeFileSync(join(ICON_CACHE_DIR, `${name}.svg`), text);
+        writeFileSync(join(ICON_DIR, `${key}.svg`), text);
       } catch {
         /* offline / fetch failure — icon just won't render */
       }
@@ -384,21 +426,24 @@ async function ensureIconCache() {
 const iconCache = new Map();
 function fileTypeIcon(ext) {
   if (!ext) return "";
-  const e = String(ext).toLowerCase();
-  const name = EXT_TO_ICON_NAME[e] || "document";
-  if (iconCache.has(name)) return iconCache.get(name);
-  const path = join(ICON_CACHE_DIR, `${name}.svg`);
+  const cfg = ICON_MAP[String(ext).toLowerCase()] || ICON_FALLBACK;
+  const key = `${cfg.src}.${cfg.slug}`;
+  if (iconCache.has(key)) return iconCache.get(key);
+  const path = join(ICON_DIR, `${key}.svg`);
   if (!existsSync(path)) {
-    iconCache.set(name, "");
+    iconCache.set(key, "");
     return "";
   }
-  // Strip XML/DOCTYPE prologue + ensure our class is on the root <svg>.
-  const svg = readFileSync(path, "utf8")
+  let svg = readFileSync(path, "utf8")
     .replace(/<\?xml[^>]*\?>/g, "")
-    .replace(/<!DOCTYPE[^>]*>/g, "")
-    .replace(/<svg([^>]*?)>/, '<svg$1 class="file-icon" aria-hidden="true">')
-    .trim();
-  iconCache.set(name, svg);
+    .replace(/<!DOCTYPE[^>]*>/g, "");
+  // Simple Icons paths have no fill — inject the brand color via the root.
+  // Material Icon Theme paths already carry their own fills.
+  const extra = cfg.src === "simple" && cfg.color
+    ? ` class="file-icon" aria-hidden="true" fill="${cfg.color}"`
+    : ` class="file-icon" aria-hidden="true"`;
+  svg = svg.replace(/<svg([^>]*?)>/, `<svg$1${extra}>`).trim();
+  iconCache.set(key, svg);
   return svg;
 }
 
@@ -609,8 +654,7 @@ function renderArtifact(spec, slug, artifact) {
 
   const header = `
     <figcaption>
-      <span class="caption-icon">${fileTypeIcon(ext)}</span>
-      <span class="caption-label">${label}</span>
+      <span class="caption-label">${fileTypeIcon(ext)}<span class="caption-text">${label}</span></span>
       <span class="caption-meta">${filename} · ${size}</span>
     </figcaption>`;
 
@@ -1207,11 +1251,13 @@ h2 .count { color: var(--fg-dim); }
   vertical-align: middle;
   flex-shrink: 0;
 }
-.caption-icon {
+.caption-label {
   display: inline-flex;
   align-items: center;
-  margin-right: 0.4rem;
+  gap: 0.4rem;
+  min-width: 0;
 }
+.caption-text { color: var(--fg); }
 .art-fallback .file-icon {
   width: 16px;
   height: 16px;
