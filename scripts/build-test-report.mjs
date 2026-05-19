@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
 import { unzipSync, gunzipSync } from "fflate";
 import hljs from "highlight.js";
-import { diffLines } from "diff";
+import { diffLines, diffWordsWithSpace } from "diff";
 
 // Map artifact extension → highlight.js language id. Anything not in the map
 // falls back to hljs auto-detect, which is decent but not perfect.
@@ -370,43 +370,39 @@ function highlightCode(body, ext) {
   return escapeHtml(body);
 }
 
-// Render a GitHub-style unified line diff. Used for tests where input and
-// output share an extension (beautify, minify, format) — we can confidently
-// compare the two as the same language. Cross-language conversions (JSON →
-// YAML, HTML → Markdown) skip this since a line diff there is just noise.
-function renderUnifiedDiff(inputBody, outputBody, ext) {
-  const changes = diffLines(inputBody, outputBody);
-  const lang = HLJS_LANG[ext];
-  const hl = (s) => {
-    try {
-      if (lang && hljs.getLanguage(lang)) {
-        return hljs.highlight(s, { language: lang, ignoreIllegals: true }).value;
-      }
-    } catch { /* fall through */ }
-    return escapeHtml(s);
-  };
-
+// Token-level diff for same-language transformations (beautify, minify,
+// format). Unlike a line diff — which makes the SQL beautify look like
+// "the whole input was removed and a fresh output was added" — this view
+// keeps the tokens that survived the transformation in their normal color
+// and only highlights the actual edits: keywords being uppercased, spaces
+// becoming newlines, character substitutions made by csso, etc.
+//
+// Line counts are still shown in the summary so the headline number stays
+// intuitive ("+18 -1") even though the body renders at token granularity.
+function renderUnifiedDiff(inputBody, outputBody) {
+  // Line-count summary (intuitive headline numbers).
   let added = 0;
   let removed = 0;
-  const html = changes
-    .flatMap((c) => {
-      const raw = c.value.endsWith("\n") ? c.value.slice(0, -1) : c.value;
-      const lines = raw.split("\n");
-      return lines.map((line) => {
-        if (c.added) {
-          added++;
-          return `<div class="diff-line diff-added"><span class="diff-marker">+</span><span class="diff-content">${hl(line)}</span></div>`;
-        }
-        if (c.removed) {
-          removed++;
-          return `<div class="diff-line diff-removed"><span class="diff-marker">-</span><span class="diff-content">${hl(line)}</span></div>`;
-        }
-        return `<div class="diff-line diff-context"><span class="diff-marker"> </span><span class="diff-content">${hl(line)}</span></div>`;
-      });
+  for (const c of diffLines(inputBody, outputBody)) {
+    if (!c.added && !c.removed) continue;
+    const trailingNewline = c.value.endsWith("\n");
+    const n = c.value.split("\n").length - (trailingNewline ? 1 : 0);
+    if (c.added) added += n;
+    else removed += n;
+  }
+  if (added === 0 && removed === 0) return "";
+
+  // Body: word + whitespace diff. Kept tokens render as plain text so the
+  // "content transferred through" is visible; only the genuine changes get
+  // red / green inline highlights.
+  const html = diffWordsWithSpace(inputBody, outputBody)
+    .map((c) => {
+      const text = escapeHtml(c.value);
+      if (c.added) return `<ins>${text}</ins>`;
+      if (c.removed) return `<del>${text}</del>`;
+      return text;
     })
     .join("");
-
-  if (added === 0 && removed === 0) return ""; // identical content — no diff
 
   return `<details class="diff-wrapper" open>
     <summary>
@@ -416,7 +412,7 @@ function renderUnifiedDiff(inputBody, outputBody, ext) {
         <span class="diff-stat-removed">-${removed}</span>
       </span>
     </summary>
-    <pre class="diff"><code>${html}</code></pre>
+    <pre class="diff diff-tokens"><code>${html}</code></pre>
   </details>`;
 }
 
@@ -594,7 +590,7 @@ function renderTest(spec, entry) {
       try {
         const inBody = readFileSync(join(ARTIFACTS, spec, slug, inArt.name), "utf8");
         const outBody = readFileSync(join(ARTIFACTS, spec, slug, outArt.name), "utf8");
-        diff = renderUnifiedDiff(inBody, outBody, inExt);
+        diff = renderUnifiedDiff(inBody, outBody);
       } catch {
         // Couldn't read as text — skip diff silently.
       }
@@ -930,41 +926,43 @@ h2 .count { color: var(--fg-dim); margin-left: 0.5rem; font-weight: normal; }
 .diff-stat-removed { color: #f85149; }
 .diff {
   margin: 0;
-  padding: 0.3rem 0;
+  padding: 0.75rem 1rem;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 0.78rem;
   max-height: 600px;
   overflow: auto;
 }
 .diff code { display: block; }
-.diff-line {
-  display: grid;
-  grid-template-columns: 2ch 1fr;
-  align-items: baseline;
-  padding: 0 0.5rem;
-  white-space: pre;
+/* Token diff: kept content renders as plain text; only edits get
+   colored backgrounds so the "stuff that transferred through" stays
+   visible as the anchor for reading the change. */
+.diff-tokens {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+  color: var(--fg);
 }
-.diff-marker {
-  text-align: center;
-  user-select: none;
-  font-weight: bold;
-  opacity: 0.75;
+.diff-tokens ins {
+  background: rgba(63, 185, 80, 0.20);
+  color: #3fb950;
+  text-decoration: none;
+  border-radius: 2px;
+  padding: 1px 2px;
+  box-shadow: inset 0 -1px 0 rgba(63, 185, 80, 0.45);
 }
-.diff-content { word-break: break-word; white-space: pre-wrap; }
-.diff-added {
-  background: rgba(63, 185, 80, 0.12);
-  border-left: 3px solid rgba(63, 185, 80, 0.55);
+.diff-tokens del {
+  background: rgba(248, 81, 73, 0.16);
+  color: #f85149;
+  text-decoration: line-through;
+  text-decoration-color: rgba(248, 81, 73, 0.6);
+  border-radius: 2px;
+  padding: 1px 2px;
+  box-shadow: inset 0 -1px 0 rgba(248, 81, 73, 0.45);
 }
-.diff-added .diff-marker { color: #3fb950; }
-.diff-removed {
-  background: rgba(248, 81, 73, 0.10);
-  border-left: 3px solid rgba(248, 81, 73, 0.55);
-}
-.diff-removed .diff-marker { color: #f85149; }
-.diff-context {
-  color: var(--fg-dim);
-  border-left: 3px solid transparent;
-}
+/* Make whitespace-only edits visible: a tiny pill is hard to miss
+   even when there's no glyph inside. */
+.diff-tokens ins:empty,
+.diff-tokens del:empty { min-width: 0.6em; display: inline-block; }
 
 /* highlight.js — github-dark-ish palette, tuned to the report colors. */
 .hljs { color: var(--fg); background: transparent; }
