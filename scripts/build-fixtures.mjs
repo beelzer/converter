@@ -46,11 +46,11 @@ function runFfmpeg(args) {
 
 async function fetchSeed() {
   ensureDir(SEED);
-  const seedPath = join(SEED, "bbb-10s-1mb.mp4");
+  const seedPath = join(SEED, "bbb-1080p-10s.mp4");
   if (existsSync(seedPath)) return seedPath;
-  console.log("Downloading Big Buck Bunny 10s seed (1MB, CC-BY 3.0)…");
+  console.log("Downloading Big Buck Bunny 1080p 10s seed (~5MB, CC-BY 3.0)…");
   const url =
-    "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4";
+    "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_5MB.mp4";
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
   if (!res.ok) throw new Error(`Seed download failed: ${res.status}`);
   const buf = Buffer.from(await res.arrayBuffer());
@@ -131,6 +131,37 @@ async function buildAv() {
     join(OUT, "av", "segment-b.mp4"),
   ]);
   console.log(`  av/segment-a.mp4 + segment-b.mp4`);
+
+  // ---- High-resolution variants ----
+  // Used by dedicated tests that exercise the HD / FHD pipelines. The bulk
+  // of the AV suite still uses the small 320x180 clip above so the suite
+  // stays fast; these are opt-in per test.
+
+  // 1-second 720p H.264 + AAC MP4 (HD)
+  runFfmpeg([
+    "-i", seed,
+    "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100:duration=1",
+    "-t", "1",
+    "-vf", "scale=1280:720",
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
+    "-c:a", "aac", "-b:a", "96k",
+    "-shortest",
+    join(OUT, "av", "clip-720p.mp4"),
+  ]);
+  console.log(`  av/clip-720p.mp4`);
+
+  // 1-second 1080p H.264 + AAC MP4 (FHD)
+  runFfmpeg([
+    "-i", seed,
+    "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100:duration=1",
+    "-t", "1",
+    "-vf", "scale=1920:1080",
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
+    "-c:a", "aac", "-b:a", "128k",
+    "-shortest",
+    join(OUT, "av", "clip-1080p.mp4"),
+  ]);
+  console.log(`  av/clip-1080p.mp4`);
 }
 
 // ============================================================================
@@ -183,19 +214,18 @@ async function buildImages() {
   }
   write("image/alpha.png", PNG.sync.write(alphaPng));
 
-  // Gradient PNG (larger, for resize tests)
-  write("image/gradient.png", makeGradientPng(200, 150));
+  // Gradient PNG — full 1080p (1920x1080). Exercises high-res scaling code
+  // paths in the Image hub's Resize / Convert / Favicon flows.
+  write("image/gradient.png", makeGradientPng(1920, 1080));
 
   // Solid red PNG (small, for convert tests)
   write("image/solid-red.png", makeSolidPng(32, 32, [220, 20, 60]));
 
-  // Convert one to JPEG and inject realistic EXIF tags via piexifjs
-  if (existsSync("ffmpeg")) {
-    // never reached — runFfmpeg handles availability
-  }
+  // Convert one to JPEG and inject realistic EXIF tags via piexifjs.
+  // 1080p source so the resulting JPEG is a realistic "photo".
   const tmpPng = join(SEED, "_for-jpg.png");
   ensureDir(SEED);
-  writeFileSync(tmpPng, makeGradientPng(400, 300));
+  writeFileSync(tmpPng, makeGradientPng(1920, 1080));
   const jpgPath = join(OUT, "image", "photo-no-exif.jpg");
   runFfmpeg(["-i", tmpPng, "-q:v", "5", jpgPath]);
   console.log(`  image/photo-no-exif.jpg`);

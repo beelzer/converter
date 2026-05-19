@@ -130,6 +130,9 @@ export const FIXTURES = {
     audioWav: f("av/audio.wav"),
     segmentA: f("av/segment-a.mp4"),
     segmentB: f("av/segment-b.mp4"),
+    // High-resolution clips for tests that exercise the HD / FHD pipelines.
+    clip720p: f("av/clip-720p.mp4"),
+    clip1080p: f("av/clip-1080p.mp4"),
   },
   image: {
     alphaPng: f("image/alpha.png"),

@@ -3,17 +3,32 @@
 Real test media bundled into the e2e suite so that the tools are exercised
 against authentic file shapes — not just synthesized happy paths.
 
-Total committed size: ~400 KB. All fixtures are reproducible via:
+Total committed size: ~970 KB. All fixtures are reproducible via:
 
 ```
 node scripts/build-fixtures.mjs            # everything
 node scripts/build-fixtures.mjs av         # one category: av | image | pdf | doc | archive | data | code
 ```
 
-The script downloads a single seed (Big Buck Bunny, 1 MB, 10s, CC-BY 3.0,
+The script downloads a single seed (Big Buck Bunny 1080p, ~5 MB, 10s, CC-BY 3.0,
 cached in `node_modules/.cache/fixture-seed/`) and derives the rest. Only
 `av/*` requires ffmpeg + network; every other category is pure-Node and
 runs offline.
+
+## Resolutions
+
+| Fixture | Resolution | Use |
+|---|---|---|
+| `av/clip.mp4` / `clip.webm` | 320 × 180 | Fast smoke / pipeline tests. The bulk of the AV suite uses these. |
+| `av/clip-720p.mp4` | 1280 × 720 (HD) | Dedicated HD-pipeline test (Convert MP4 → WebM). |
+| `av/clip-1080p.mp4` | 1920 × 1080 (FHD) | Dedicated FHD-pipeline test (Frames extraction at source resolution). |
+| `image/gradient.png`, `image/photo-*.jpg` | 1920 × 1080 (FHD) | All Image hub tests use real 1080p input. |
+| `image/alpha.png`, `image/solid-red.png` | 16 × 16 / 32 × 32 | About alpha / color handling, not resolution. |
+
+4K (2160p) is out of scope: encoding a 2-second 4K MP4 in headless Chromium
+without GPU acceleration adds ~30s per affected test. If we ever need to
+verify the 4K code path explicitly, regenerate fixtures with a synthetic
+upscale and add a serial `@slow` describe block.
 
 ## Provenance + licenses
 

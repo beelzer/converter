@@ -262,6 +262,66 @@ test.describe("Audio/video toolkit — real fixtures", () => {
     });
   });
 
+  test("Frames mode extracts a 1080p PNG from the FHD fixture", async ({
+    page,
+  }, testInfo) => {
+    // Exercise the high-resolution decode + canvas snapshot path. The output
+    // PNG should keep the source 1920x1080 dimensions.
+    await page.goto("/audio-video/");
+    await page.getByRole("tab", { name: /^Frames$/ }).click();
+    await page.setInputFiles('input[type="file"]', FIXTURES.av.clip1080p);
+    await expect(page.getByRole("button", { name: /^Extract frame$/ })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    const dl = page.waitForEvent("download", { timeout: HEAVY_TIMEOUT });
+    await page.getByRole("button", { name: /^Extract frame$/ }).click();
+    const download = await dl;
+
+    const outPath = path.join(os.tmpdir(), `e2e-real-frame-1080p-${Date.now()}.png`);
+    await download.saveAs(outPath);
+    const bytes = await fs.readFile(outPath);
+    // PNG IHDR sits at byte 16; width is a big-endian uint32.
+    const width = (bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19];
+    const height = (bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23];
+    expect(width).toBe(1920);
+    expect(height).toBe(1080);
+
+    report(testInfo, {
+      input: { path: FIXTURES.av.clip1080p, label: "clip-1080p.mp4 — 1920×1080 FHD source" },
+      output: { path: outPath, label: `Extracted frame at ${width}×${height}` },
+      notes: "The PNG should preserve the source 1080p dimensions — no implicit downscaling.",
+    });
+  });
+
+  test("Convert HD MP4 → WebM downscales correctly", async ({ page }, testInfo) => {
+    // Exercise the 720p decode + VP9 re-encode pipeline.
+    await page.goto("/audio-video/");
+    await page.setInputFiles('input[type="file"]', FIXTURES.av.clip720p);
+    await expect(page.getByRole("button", { name: /Convert .*/i })).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.getByRole("button", { name: /^WebM$/, exact: true }).click();
+    await page.getByRole("button", { name: /^Low$/, exact: true }).click();
+
+    const dl = page.waitForEvent("download", { timeout: HEAVY_TIMEOUT });
+    await page.getByRole("button", { name: /Convert → WebM/i }).click();
+    const download = await dl;
+    expect(download.suggestedFilename()).toBe("clip-720p.webm");
+
+    const outPath = path.join(os.tmpdir(), `e2e-real-conv-hd-${Date.now()}.webm`);
+    await download.saveAs(outPath);
+    const bytes = await fs.readFile(outPath);
+    expect([bytes[0], bytes[1], bytes[2], bytes[3]]).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
+    expect(bytes.byteLength).toBeGreaterThan(10_000);
+
+    report(testInfo, {
+      input: { path: FIXTURES.av.clip720p, label: "clip-720p.mp4 — H.264 @ 1280×720 (HD)" },
+      output: { path: outPath, label: "clip-720p.webm — VP9 re-encoded" },
+      notes: "Same HD content, different container + codec. Both should play in the browser.",
+    });
+  });
+
   test("Video → GIF turns the MP4 fixture into a GIF", async ({ page }, testInfo) => {
     await page.goto("/audio-video/");
     await page.getByRole("tab", { name: /Video → GIF/ }).click();
