@@ -7,7 +7,7 @@
 // No build step, no framework — the page uses native <img>/<video>/<audio>
 // /<embed>/<pre> tags and inline CSS.
 
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -321,6 +321,87 @@ function inspectArchive(filePath, ext) {
   return { entries: decorated, totalBytes };
 }
 
+// File-type icons sourced from VS Code's Material Icon Theme (MIT-licensed,
+// https://github.com/PKief/vscode-material-icon-theme). Downloaded once into
+// node_modules/.cache/file-icons/ on first run and inlined in the report
+// thereafter, so the rendered HTML stays self-contained.
+const ICON_BASE_URL =
+  "https://raw.githubusercontent.com/PKief/vscode-material-icon-theme/main/icons";
+const ICON_CACHE_DIR = join(ROOT, "node_modules", ".cache", "file-icons");
+
+// Map extension → material-icon-theme icon name. Multiple extensions can
+// share an icon (mp4/webm/mov/mkv → video, etc.).
+const EXT_TO_ICON_NAME = {
+  pdf: "pdf",
+  doc: "word", docx: "word",
+  xls: "excel", xlsx: "excel",
+  csv: "table", tsv: "table",
+  json: "json",
+  yaml: "yaml", yml: "yaml",
+  xml: "xml",
+  toml: "toml",
+  html: "html", htm: "html",
+  css: "css",
+  scss: "sass",
+  js: "javascript", mjs: "javascript", jsx: "react",
+  ts: "typescript", tsx: "react_ts",
+  sql: "database",
+  zip: "zip", tar: "zip", gz: "zip", tgz: "zip", rar: "zip", "7z": "zip",
+  mp4: "video", webm: "video", mov: "video", mkv: "video",
+  mp3: "audio", wav: "audio", ogg: "audio", flac: "audio", aac: "audio",
+  png: "image", jpg: "image", jpeg: "image", gif: "image",
+  webp: "image", bmp: "image", ico: "image",
+  svg: "svg",
+  md: "markdown", markdown: "markdown",
+  txt: "document",
+  log: "log",
+  webmanifest: "manifest",
+};
+
+async function ensureIconCache() {
+  mkdirSync(ICON_CACHE_DIR, { recursive: true });
+  const wanted = new Set(Object.values(EXT_TO_ICON_NAME));
+  wanted.add("document"); // generic fallback
+  const missing = [...wanted].filter(
+    (name) => !existsSync(join(ICON_CACHE_DIR, `${name}.svg`))
+  );
+  if (missing.length === 0) return;
+  console.log(`  fetching ${missing.length} material-icon-theme icons…`);
+  await Promise.all(
+    missing.map(async (name) => {
+      try {
+        const res = await fetch(`${ICON_BASE_URL}/${name}.svg`);
+        if (!res.ok) return;
+        const text = await res.text();
+        writeFileSync(join(ICON_CACHE_DIR, `${name}.svg`), text);
+      } catch {
+        /* offline / fetch failure — icon just won't render */
+      }
+    })
+  );
+}
+
+const iconCache = new Map();
+function fileTypeIcon(ext) {
+  if (!ext) return "";
+  const e = String(ext).toLowerCase();
+  const name = EXT_TO_ICON_NAME[e] || "document";
+  if (iconCache.has(name)) return iconCache.get(name);
+  const path = join(ICON_CACHE_DIR, `${name}.svg`);
+  if (!existsSync(path)) {
+    iconCache.set(name, "");
+    return "";
+  }
+  // Strip XML/DOCTYPE prologue + ensure our class is on the root <svg>.
+  const svg = readFileSync(path, "utf8")
+    .replace(/<\?xml[^>]*\?>/g, "")
+    .replace(/<!DOCTYPE[^>]*>/g, "")
+    .replace(/<svg([^>]*?)>/, '<svg$1 class="file-icon" aria-hidden="true">')
+    .trim();
+  iconCache.set(name, svg);
+  return svg;
+}
+
 function escapeHtml(s) {
   return s
     .replace(/&/g, "&amp;")
@@ -528,6 +609,7 @@ function renderArtifact(spec, slug, artifact) {
 
   const header = `
     <figcaption>
+      <span class="caption-icon">${fileTypeIcon(ext)}</span>
       <span class="caption-label">${label}</span>
       <span class="caption-meta">${filename} · ${size}</span>
     </figcaption>`;
@@ -574,7 +656,7 @@ function renderArtifact(spec, slug, artifact) {
     // though they're embeddable inline.
     return `<figure class="art art-pdf">${header}
       <embed src="${href}" type="application/pdf" width="100%" height="500">
-      <a class="art-fallback" href="${href}" download="${filename}">Download PDF</a>
+      <a class="art-fallback" href="${href}" download="${filename}">${fileTypeIcon("pdf")} Download PDF</a>
     </figure>`;
   }
 
@@ -588,11 +670,11 @@ function renderArtifact(spec, slug, artifact) {
       const inner = readFileSync(previewPath, "utf8");
       return `<figure class="art art-docx">${header}
         <div class="docx-preview">${inner}</div>
-        <a class="art-fallback" href="${href}" target="_blank">Download .docx</a>
+        <a class="art-fallback" href="${href}" download="${filename}">${fileTypeIcon("docx")} Download .docx</a>
       </figure>`;
     }
     return `<figure class="art art-docx">${header}
-      <div class="art-binary">DOCX — <a href="${href}" target="_blank">download</a></div>
+      <div class="art-binary">${fileTypeIcon("docx")} <a href="${href}" download="${filename}">Download</a></div>
     </figure>`;
   }
 
@@ -617,7 +699,7 @@ function renderArtifact(spec, slug, artifact) {
     if (!inspected) {
       // RAR / 7z / unsupported: fall back to download-only.
       return `<figure class="art art-archive">${header}
-        <div class="art-binary">📦 Archive (${escapeHtml(ext.toUpperCase())}) — <a href="${href}" target="_blank">download</a></div>
+        <div class="art-binary">${fileTypeIcon(ext)} Archive — <a href="${href}" download="${filename}">Download</a></div>
       </figure>`;
     }
     return `<figure class="art art-archive">${header}
@@ -1118,6 +1200,28 @@ h2 .count { color: var(--fg-dim); }
   align-items: baseline;
   gap: 0.5rem;
 }
+/* Material Icon Theme file-type icons (downloaded + inlined at build) */
+.file-icon {
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.caption-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.4rem;
+}
+.art-fallback .file-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 0.4rem;
+}
+.art-binary .file-icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 0.4rem;
+}
 .caption-label { color: var(--fg); }
 .caption-meta {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -1477,8 +1581,9 @@ async function main() {
     process.exit(1);
   }
   // Pre-generate sidecar previews that need async work (DOCX → HTML via
-  // mammoth). The sync renderer below just reads the sidecars.
-  await prepareDocxPreviews(groups);
+  // mammoth) and fetch the material-icon-theme icons on first run. The
+  // sync renderer below just reads from disk.
+  await Promise.all([prepareDocxPreviews(groups), ensureIconCache()]);
   const html = renderHtml(groups);
   const out = join(ARTIFACTS, "index.html");
   writeFileSync(out, html);
