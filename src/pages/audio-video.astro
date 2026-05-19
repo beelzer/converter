@@ -1,0 +1,173 @@
+---
+import ToolLayout from "../components/ToolLayout.astro";
+import AvHub from "../components/tools/AvHub.tsx";
+
+const title = "Audio/video tools — convert, trim, GIF, extract audio | tools.dcln.me";
+const description =
+  "All-in-one audio and video toolkit that runs entirely in your browser using WebCodecs. Convert MP4/WebM/MOV/MKV, trim, extract audio, video to GIF, compress, grab frames, merge clips. Nothing is uploaded.";
+
+const howToSchema = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "How to edit audio and video in your browser",
+  description:
+    "Convert, trim, extract audio, make GIFs, compress, grab frames or merge clips — all locally with WebCodecs.",
+  step: [
+    {
+      "@type": "HowToStep",
+      position: 1,
+      name: "Pick a mode",
+      text: "Choose a tab: Convert, Trim, Extract audio, Video → GIF, Compress, Frames, or Merge.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 2,
+      name: "Drop a video or audio file",
+      text: "Drag and drop into the drop zone, or click to pick. Metadata reads instantly — no upload.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 3,
+      name: "Set options and run",
+      text: "Pick the output container, bitrate, trim range, fps and so on, then click the action button. The file downloads locally when done.",
+    },
+  ],
+};
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Does my video get uploaded anywhere?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No. Every operation runs in your browser via WebCodecs and mediabunny. Open the network tab while you convert — you won't see a single byte of your file leave the device.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Which containers and codecs are supported?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Containers in/out: MP4, WebM, MOV, MKV for video; MP3, WAV, AAC, FLAC and Ogg for audio. Video encoding uses H.264 for MP4/MOV and VP9 for WebM/MKV; audio uses AAC, Opus, MP3, FLAC or Vorbis depending on the container. All of these are handled natively by WebCodecs in modern Chromium and Firefox.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Why is converting slower than ffmpeg in a terminal?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Browsers expose hardware video encoders through WebCodecs, but they cap concurrency and don't allow shared memory across origins without a site-wide isolation flag (COOP/COEP) that breaks third-party embeds. We trade a little speed for keeping the rest of the site fast and ad-network friendly. For typical clips up to a few minutes, conversion completes in seconds.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What happens if WebCodecs can't decode my file?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "You'll get an error explaining the codec isn't supported in your browser. Most real-world MP4/WebM/MOV/MKV files work. Exotic codecs (e.g. ProRes 4444, AV1 in older browsers) may not — try converting them in a desktop tool first, then come back.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How does Video → GIF work?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Frames are decoded with WebCodecs at the fps you pick, scaled to the target width, then encoded into an animated GIF using gifenc. The encoder runs a fast nearest-neighbor color quantizer per frame — output is great for screen recordings and flat graphics, less ideal for noisy photographic video.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does it work offline?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes. mediabunny is pure JavaScript with zero dependencies and no WASM blobs — once the page is in the browser cache, the toolkit works without an internet connection.",
+      },
+    },
+  ],
+};
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Tools",
+      item: "https://tools.dcln.me/",
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Audio/Video",
+      item: "https://tools.dcln.me/audio-video",
+    },
+  ],
+};
+---
+
+<ToolLayout title={title} description={description} schema={[howToSchema, faqSchema, breadcrumbSchema]}>
+  <section class="mx-auto max-w-4xl px-6 pt-12 sm:pt-16">
+    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-3 uppercase tracking-widest">
+      <a href="/" class="hover:text-[var(--color-fg)]">tools</a>
+      <span class="mx-2">/</span>
+      <span>audio-video</span>
+    </p>
+    <h1 class="font-mono text-3xl sm:text-4xl font-semibold leading-tight">
+      Audio &amp; video tools.
+    </h1>
+    <p class="mt-4 text-lg text-[var(--color-fg-muted)] leading-relaxed">
+      Convert between MP4, WebM, MOV and MKV. Trim, compress, extract audio, make GIFs, grab frames, merge clips — all running locally in your browser through WebCodecs. Nothing uploads.
+    </p>
+  </section>
+
+  <section class="mx-auto max-w-4xl px-6 mt-10" aria-label="Audio/video toolkit">
+    <AvHub client:load />
+  </section>
+
+  <section class="mx-auto max-w-4xl px-6 mt-16" aria-labelledby="how-heading">
+    <h2 id="how-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
+      How it works
+    </h2>
+    <ol class="space-y-4 text-[var(--color-fg-muted)]">
+      <li class="flex gap-4">
+        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">01</span>
+        <span>
+          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Pick a mode.</strong>
+          The tab bar lists seven operations: convert, trim, extract audio, video to GIF, compress, frames, merge.
+        </span>
+      </li>
+      <li class="flex gap-4">
+        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">02</span>
+        <span>
+          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Drop a file.</strong>
+          Drag and drop, or click. Metadata reads instantly. Powered by mediabunny over WebCodecs — no WASM blob to download, no server round trips.
+        </span>
+      </li>
+      <li class="flex gap-4">
+        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">03</span>
+        <span>
+          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Configure &amp; download.</strong>
+          Tune the options for the selected mode, then run. Encoding uses your platform's hardware video encoders where available.
+        </span>
+      </li>
+    </ol>
+  </section>
+
+  <section class="mx-auto max-w-4xl px-6 mt-16 mb-12" aria-labelledby="faq-heading">
+    <h2 id="faq-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
+      FAQ
+    </h2>
+    <dl class="space-y-6">
+      {faqSchema.mainEntity.map((qa) => (
+        <div>
+          <dt class="font-mono text-base text-[var(--color-fg)] mb-2">{qa.name}</dt>
+          <dd class="text-[var(--color-fg-muted)] leading-relaxed">{qa.acceptedAnswer.text}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+</ToolLayout>
