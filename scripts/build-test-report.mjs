@@ -15,6 +15,10 @@ import { unzipSync, gunzipSync } from "fflate";
 import hljs from "highlight.js";
 import { diffLines, diffWordsWithSpace } from "diff";
 import mammoth from "mammoth";
+import yaml from "js-yaml";
+import { parse as parseToml } from "smol-toml";
+import { XMLParser } from "fast-xml-parser";
+import Papa from "papaparse";
 
 // Map artifact extension → highlight.js language id. Anything not in the map
 // falls back to hljs auto-detect, which is decent but not perfect.
@@ -565,9 +569,12 @@ function renderArtifact(spec, slug, artifact) {
   }
 
   if (ext === "pdf") {
+    // `download` attribute is the reliable cross-browser action — Chrome
+    // sometimes refuses to open PDFs in a new tab from file:// URLs even
+    // though they're embeddable inline.
     return `<figure class="art art-pdf">${header}
       <embed src="${href}" type="application/pdf" width="100%" height="500">
-      <a class="art-fallback" href="${href}" target="_blank">Open PDF in new tab</a>
+      <a class="art-fallback" href="${href}" download="${filename}">Download PDF</a>
     </figure>`;
   }
 
@@ -625,6 +632,114 @@ function renderArtifact(spec, slug, artifact) {
 
 // Compute a similarity badge for a paired input/output of the same media kind.
 // Returns HTML or "" if comparison isn't possible / doesn't make sense.
+// Parse a text data file into a JS value, so we can compare across formats.
+// Returns undefined if the extension isn't a data format or parsing fails.
+const DATA_EXTS_PARSEABLE = new Set([
+  "json", "yaml", "yml", "toml", "xml", "csv", "tsv",
+]);
+
+function parseDataFile(text, ext) {
+  try {
+    switch (ext) {
+      case "json":
+        return JSON.parse(text);
+      case "yaml":
+      case "yml":
+        return yaml.load(text);
+      case "toml":
+        return parseToml(text);
+      case "xml":
+        return new XMLParser({ ignoreAttributes: true, trimValues: true }).parse(text);
+      case "csv":
+      case "tsv": {
+        const r = Papa.parse(text, {
+          header: true,
+          dynamicTyping: true,
+          skipEmptyLines: true,
+          delimiter: ext === "tsv" ? "\t" : ",",
+        });
+        return r.data;
+      }
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+// Deep structural equality. Treats missing-key vs undefined-value as equal.
+// Does NOT do cross-type coercion (so `"1815"` ≠ `1815`) — but parseDataFile
+// with dynamicTyping handles the common case.
+function deepEqualData(a, b) {
+  if (a === b) return true;
+  if (a === null || b === null) return a === b;
+  if (typeof a !== typeof b) return false;
+  if (typeof a !== "object") return a === b;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqualData(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  const keysA = Object.keys(a).sort();
+  const keysB = Object.keys(b).sort();
+  if (keysA.length !== keysB.length) return false;
+  for (let i = 0; i < keysA.length; i++) {
+    if (keysA[i] !== keysB[i]) return false;
+    if (!deepEqualData(a[keysA[i]], b[keysA[i]])) return false;
+  }
+  return true;
+}
+
+// Render a "data structure preserved across formats" badge for cross-format
+// data conversion tests (JSON → YAML, CSV → JSON, etc.). A textual diff is
+// meaningless for these — we instead parse both sides and assert the JS
+// value trees are equivalent.
+function renderStructuralBadge(spec, slug, input, output) {
+  const inExt = input.ext.toLowerCase();
+  const outExt = output.ext.toLowerCase();
+  if (!DATA_EXTS_PARSEABLE.has(inExt) || !DATA_EXTS_PARSEABLE.has(outExt)) return "";
+  // Same-ext tests already get a textual diff; the structural check would
+  // be redundant noise there.
+  if (inExt === outExt) return "";
+  try {
+    const inText = readFileSync(join(ARTIFACTS, spec, slug, input.name), "utf8");
+    const outText = readFileSync(join(ARTIFACTS, spec, slug, output.name), "utf8");
+    let inData = parseDataFile(inText, inExt);
+    let outData = parseDataFile(outText, outExt);
+    if (inData === undefined || outData === undefined) return "";
+
+    // Some converters (CSV → JSON) inflate to an array; the JSON source
+    // might be `{ key: [...] }`. Unwrap a single-key wrapper on either
+    // side so the "shape" change doesn't mask a true round-trip.
+    const unwrap = (v) => {
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        const keys = Object.keys(v);
+        if (keys.length === 1 && Array.isArray(v[keys[0]])) return v[keys[0]];
+      }
+      return v;
+    };
+    const inU = unwrap(inData);
+    const outU = unwrap(outData);
+
+    const equal = deepEqualData(inData, outData) || deepEqualData(inU, outU);
+    if (equal) {
+      return `<div class="similarity sim-great">
+        <span class="sim-label">data structure</span>
+        <span class="sim-value">round-trip preserved across formats</span>
+      </div>`;
+    }
+    return `<div class="similarity sim-degraded">
+      <span class="sim-label">data structure</span>
+      <span class="sim-value">differs — conversion not lossless</span>
+    </div>`;
+  } catch {
+    return "";
+  }
+}
+
 function renderSimilarityBadge(spec, slug, input, output) {
   if (!FFMPEG_AVAILABLE) return "";
   const inExt = input.ext.toLowerCase();
@@ -688,7 +803,12 @@ function renderTest(spec, entry) {
   let diff = "";
   if (inputs.length === 1 && outputs.length === 1) {
     const [inArt, outArt] = [inputs[0], outputs[0]];
-    badge = renderSimilarityBadge(spec, slug, inArt, outArt);
+    // Media similarity (PSNR) takes priority when both sides are media.
+    // For cross-format data converts (different parseable extensions),
+    // fall back to a structural-equivalence check.
+    badge =
+      renderSimilarityBadge(spec, slug, inArt, outArt) ||
+      renderStructuralBadge(spec, slug, inArt, outArt);
 
     // GitHub-style unified diff for same-extension text artifacts
     // (beautify, minify, format, identical-passthrough). Cross-format

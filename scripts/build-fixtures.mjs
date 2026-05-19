@@ -17,7 +17,6 @@ import { PNG } from "pngjs";
 import { PDFDocument, StandardFonts, degrees, rgb } from "pdf-lib";
 import { zipSync, gzipSync, strToU8 } from "fflate";
 import yaml from "js-yaml";
-import { stringify as tomlStringify } from "smol-toml";
 import { XMLBuilder } from "fast-xml-parser";
 import piexif from "piexifjs";
 
@@ -530,7 +529,40 @@ function buildData() {
 
   write("data/people.json", Buffer.from(JSON.stringify({ people: PEOPLE }, null, 2) + "\n"));
   write("data/people.yaml", Buffer.from(yaml.dump({ people: PEOPLE })));
-  write("data/people.toml", Buffer.from(tomlStringify({ people: PEOPLE })));
+
+  // TOML — written deliberately non-canonical so the Format/Minify test in
+  // the Data hub has visible work to demonstrate. Includes a stray comment,
+  // inconsistent indentation, extra blank lines, and a leading-whitespace
+  // header. The data shape stays identical to PEOPLE so the data-spec
+  // round-trip tests keep passing.
+  const toml = `# tools.dcln.me — sample data
+  # extra leading whitespace + comment that smol-toml's formatter strips
+
+
+[[ people ]]
+   name="Ada Lovelace"
+   born  =   1815
+role  ="mathematician"
+languages=["analytical-engine"]
+   active=false
+
+  [[people]]
+
+  name = "Grace Hopper"
+born=1906
+  role="rear admiral"
+   languages=["COBOL","FLOW-MATIC"]
+active=false
+
+
+[[people]]
+name="Hedy Lamarr"
+born=1914
+   role= "inventor"
+languages=[]
+active=false
+`;
+  write("data/people.toml", Buffer.from(toml));
 
   // XML
   const xml = new XMLBuilder({ format: true, indentBy: "  " }).build({
