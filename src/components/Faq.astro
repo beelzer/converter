@@ -1,0 +1,23 @@
+---
+import type { FaqItem } from "../lib/schema";
+
+interface Props {
+  items: FaqItem[];
+  headingId?: string;
+}
+const { items, headingId = "faq-heading" } = Astro.props;
+---
+
+<section class="mx-auto max-w-5xl px-6 mt-16 mb-12" aria-labelledby={headingId}>
+  <h2 id={headingId} class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
+    FAQ
+  </h2>
+  <dl class="space-y-6">
+    {items.map((qa) => (
+      <div>
+        <dt class="font-mono text-base text-[var(--color-fg)] mb-2">{qa.q}</dt>
+        <dd class="text-[var(--color-fg-muted)] leading-relaxed">{qa.a}</dd>
+      </div>
+    ))}
+  </dl>
+</section>

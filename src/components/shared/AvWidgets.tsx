@@ -1,4 +1,8 @@
-import type { ComponentChildren } from "preact";
+// AV-specific UI widget. Generic primitives (Pills, Fieldset, StatusLine,
+// Status, btnPrimary) have moved to ./Widgets — this file is just the
+// MetaSummary that's specific to A/V's MediaMetadata shape, plus
+// backwards-compatible re-exports so existing imports keep working.
+
 import { formatSize } from "../../lib/util/file";
 import { formatDuration } from "../../lib/av/formats";
 import type { MediaMetadata } from "../../lib/av/input";
@@ -17,92 +21,6 @@ export function MetaSummary({ file, meta }: { file: File; meta: MediaMetadata })
   );
 }
 
-export function Fieldset({
-  legend,
-  children,
-}: {
-  legend: string;
-  children: ComponentChildren;
-}) {
-  return (
-    <fieldset class="mt-6">
-      <legend class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-2">
-        {legend}
-      </legend>
-      {children}
-    </fieldset>
-  );
-}
-
-interface PillsProps<T extends string> {
-  options: readonly T[];
-  value: T;
-  onChange: (v: T) => void;
-  label: (v: T) => string;
-  disabled?: boolean;
-}
-
-export function Pills<T extends string>({
-  options,
-  value,
-  onChange,
-  label,
-  disabled,
-}: PillsProps<T>) {
-  return (
-    <div class="flex flex-wrap gap-2">
-      {options.map((option) => (
-        <button
-          key={option}
-          type="button"
-          onClick={() => onChange(option)}
-          disabled={disabled}
-          aria-pressed={value === option}
-          class={`font-mono text-sm px-4 py-2 rounded-md border transition-colors ${
-            value === option
-              ? "border-[var(--color-accent)] text-[var(--color-accent)]"
-              : "border-[var(--color-border)] text-[var(--color-fg)] hover:border-[var(--color-fg-muted)]"
-          } disabled:opacity-50`}
-        >
-          {label(option)}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-export type AvStatus =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "working"; p: number; label?: string }
-  | { kind: "done"; filename: string; size: number; count?: number }
-  | { kind: "error"; message: string };
-
-export function StatusLine({ status }: { status: AvStatus }) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      aria-atomic="true"
-      class="mt-4 min-h-[1.5rem] font-mono text-sm"
-    >
-      {status.kind === "loading" && (
-        <span class="text-[var(--color-fg-muted)]">Reading metadata…</span>
-      )}
-      {status.kind === "working" && (
-        <span class="text-[var(--color-accent)]">
-          {status.label ?? "Working"}… {Math.round(status.p * 100)}%
-        </span>
-      )}
-      {status.kind === "done" && (
-        <span class="text-[var(--color-accent)]">
-          ✓ {status.count && status.count > 1 ? `${status.count} files → ` : ""}
-          {status.filename} ({formatSize(status.size)}) downloaded.
-        </span>
-      )}
-      {status.kind === "error" && (
-        <span class="text-[var(--color-danger)]">Error: {status.message}</span>
-      )}
-    </div>
-  );
-}
+// Backwards-compat re-exports so AV components keep working unchanged.
+export { Fieldset, Pills, StatusLine } from "./Widgets";
+export type { Status as AvStatus } from "./Widgets";

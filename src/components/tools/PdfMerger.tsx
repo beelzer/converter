@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import FileDropZone from "../shared/FileDropZone";
+import type { Status } from "../shared/Widgets";
 import { downloadBlob, formatSize, newId } from "../../lib/util/file";
+import { MIME } from "../../lib/util/mime";
 import type { MergeRequest, MergeResponse } from "../../lib/pdf/merge.worker";
 
 interface QueuedFile {
@@ -9,14 +11,6 @@ interface QueuedFile {
   size: number;
   file: File;
 }
-
-type Status =
-  | { kind: "idle" }
-  | { kind: "loading-worker" }
-  | { kind: "reading" }
-  | { kind: "merging" }
-  | { kind: "done"; pageCount: number; filename: string }
-  | { kind: "error"; message: string };
 
 export default function PdfMerger() {
   const [files, setFiles] = useState<QueuedFile[]>([]);
@@ -33,7 +27,7 @@ export default function PdfMerger() {
 
   const ensureWorker = useCallback(async (): Promise<Worker> => {
     if (workerRef.current) return workerRef.current;
-    setStatus({ kind: "loading-worker" });
+    setStatus({ kind: "loading", label: "Preparing merger" });
     const worker = new Worker(
       new URL("../../lib/pdf/merge.worker.ts", import.meta.url),
       { type: "module" }
@@ -91,7 +85,7 @@ export default function PdfMerger() {
     }
     try {
       const worker = await ensureWorker();
-      setStatus({ kind: "reading" });
+      setStatus({ kind: "loading", label: "Reading files" });
       const buffers = await Promise.all(files.map((f) => f.file.arrayBuffer()));
 
       const id = ++requestIdRef.current;
@@ -106,7 +100,7 @@ export default function PdfMerger() {
         worker.addEventListener("message", handler);
       });
 
-      setStatus({ kind: "merging" });
+      setStatus({ kind: "working", label: "Merging in your browser" });
       const req: MergeRequest = { id, buffers };
       worker.postMessage(req, buffers);
 
@@ -116,8 +110,8 @@ export default function PdfMerger() {
         return;
       }
 
-      downloadBlob(result.bytes, filename, "application/pdf");
-      setStatus({ kind: "done", pageCount: result.pageCount, filename });
+      downloadBlob(result.bytes, filename, MIME.PDF);
+      setStatus({ kind: "done", count: result.pageCount, filename, meta: { unit: "pages" } });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setStatus({ kind: "error", message });
@@ -145,9 +139,8 @@ export default function PdfMerger() {
   const onItemDragEnd = () => setDragIndex(null);
 
   const busy =
-    status.kind === "loading-worker" ||
-    status.kind === "reading" ||
-    status.kind === "merging";
+    status.kind === "loading" ||
+    status.kind === "working";
 
   return (
     <div class="w-full">
@@ -246,7 +239,7 @@ export default function PdfMerger() {
               disabled={files.length < 2 || busy}
               class="font-mono text-sm px-5 py-2.5 rounded-md bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:bg-[var(--color-fg-dim)] disabled:cursor-not-allowed transition-colors"
             >
-              {busy ? statusLabel(status) : `Merge & download ${files.length} PDF${files.length === 1 ? "" : "s"}`}
+              {busy ? buttonLabel(status) : `Merge & download ${files.length} PDF${files.length === 1 ? "" : "s"}`}
             </button>
             {files.length === 1 && status.kind === "idle" && (
               <span class="font-mono text-xs text-[var(--color-fg-muted)]">
@@ -263,18 +256,15 @@ export default function PdfMerger() {
         aria-atomic="true"
         class="mt-4 min-h-[1.5rem] font-mono text-sm"
       >
-        {status.kind === "loading-worker" && (
-          <span class="text-[var(--color-fg-muted)]">Preparing merger…</span>
+        {status.kind === "loading" && (
+          <span class="text-[var(--color-fg-muted)]">{status.label}…</span>
         )}
-        {status.kind === "reading" && (
-          <span class="text-[var(--color-fg-muted)]">Reading files…</span>
-        )}
-        {status.kind === "merging" && (
-          <span class="text-[var(--color-accent)]">Merging in your browser…</span>
+        {status.kind === "working" && (
+          <span class="text-[var(--color-accent)]">{status.label}…</span>
         )}
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
-            ✓ Merged {status.pageCount} pages → {status.filename} downloaded.
+            ✓ Merged {status.count} pages → {status.filename} downloaded.
           </span>
         )}
         {status.kind === "error" && (
@@ -287,17 +277,11 @@ export default function PdfMerger() {
   );
 }
 
-function statusLabel(status: Status): string {
-  switch (status.kind) {
-    case "loading-worker":
-      return "Loading…";
-    case "reading":
-      return "Reading files…";
-    case "merging":
-      return "Merging…";
-    default:
-      return "Working…";
-  }
+function buttonLabel(status: Status): string {
+  if (status.kind === "loading" && status.label === "Preparing merger") return "Loading…";
+  if (status.kind === "loading" && status.label === "Reading files") return "Reading files…";
+  if (status.kind === "working") return "Merging…";
+  return "Working…";
 }
 
 function deriveFilename(files: QueuedFile[]): string {

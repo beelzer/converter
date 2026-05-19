@@ -1,13 +1,10 @@
 import { useState } from "preact/hooks";
 import FileDropZone from "../shared/FileDropZone";
-import { downloadBlob, formatSize } from "../../lib/util/file";
+import OutputPanel from "../shared/OutputPanel";
+import type { Status } from "../shared/Widgets";
+import { formatSize } from "../../lib/util/file";
+import { MIME } from "../../lib/util/mime";
 import { extractPdfText } from "../../lib/document/pdfText";
-
-type Status =
-  | { kind: "idle" }
-  | { kind: "working"; p: number }
-  | { kind: "done"; pageCount: number }
-  | { kind: "error"; message: string };
 
 export default function DocPdfText() {
   const [file, setFile] = useState<File | null>(null);
@@ -29,7 +26,7 @@ export default function DocPdfText() {
     try {
       const r = await extractPdfText(file, (p) => setStatus({ kind: "working", p }));
       setText(r.joined);
-      setStatus({ kind: "done", pageCount: r.pages.length });
+      setStatus({ kind: "done", count: r.pages.length });
     } catch (err) {
       setStatus({
         kind: "error",
@@ -38,24 +35,8 @@ export default function DocPdfText() {
     }
   };
 
-  const onDownload = () => {
-    if (!text || !file) return;
-    const base = file.name.replace(/\.pdf$/i, "");
-    downloadBlob(
-      new Blob([text], { type: "text/plain" }),
-      `${base}.txt`,
-      "text/plain"
-    );
-  };
-
-  const onCopy = async () => {
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // ignore
-    }
-  };
+  const base = file ? file.name.replace(/\.pdf$/i, "") : "";
+  const downloadName = file ? `${base}.txt` : undefined;
 
   const busy = status.kind === "working";
 
@@ -85,44 +66,28 @@ export default function DocPdfText() {
             disabled={busy}
             class="font-mono text-sm px-5 py-2.5 rounded-md bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:bg-[var(--color-fg-dim)] transition-colors"
           >
-            {busy ? `Extracting… ${Math.round(status.p * 100)}%` : "Extract text"}
+            {busy ? `Extracting… ${Math.round((status.p ?? 0) * 100)}%` : "Extract text"}
           </button>
         </div>
       )}
 
       {text && (
         <div class="mt-6">
-          <label class="block font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-2">
-            Extracted text
-          </label>
-          <div class="rounded-md border-2 border-[var(--color-border)] bg-[var(--color-surface)]">
-            <textarea
-              value={text}
-              readOnly
-              rows={14}
-              aria-label="Extracted text"
-              class="block w-full bg-transparent p-3 font-mono text-sm text-[var(--color-fg)] focus:outline-none resize-y"
-              spellcheck={false}
-            />
-            <div class="flex items-center justify-between px-3 py-2 border-t border-[var(--color-border)] text-xs font-mono text-[var(--color-fg-dim)]">
-              <div class="flex gap-3">
-                <button type="button" onClick={onCopy} class="hover:text-[var(--color-accent)]">
-                  copy
-                </button>
-                <button type="button" onClick={onDownload} class="hover:text-[var(--color-accent)]">
-                  download .txt
-                </button>
-              </div>
-              <span>{text.length.toLocaleString()} chars</span>
-            </div>
-          </div>
+          <OutputPanel
+            value={text}
+            ariaLabel="Extracted text"
+            label="Extracted text"
+            rows={14}
+            filename={downloadName}
+            mime={MIME.TEXT_PLAIN}
+          />
         </div>
       )}
 
       <div role="status" aria-live="polite" class="mt-4 min-h-[1.5rem] font-mono text-sm">
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
-            ✓ Extracted text from {status.pageCount} page{status.pageCount === 1 ? "" : "s"}.
+            ✓ Extracted text from {status.count} page{status.count === 1 ? "" : "s"}.
           </span>
         )}
         {status.kind === "error" && (

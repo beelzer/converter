@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import FileDropZone from "../shared/FileDropZone";
+import type { Status } from "../shared/Widgets";
 import { downloadBlob, formatSize } from "../../lib/util/file";
+import { MIME } from "../../lib/util/mime";
 import { readPageCount } from "../../lib/pdf/split";
 import type { RotationAngle } from "../../lib/pdf/rotate";
 import type { RotateRequest, RotateResponse } from "../../lib/pdf/rotate.worker";
@@ -11,14 +13,6 @@ interface LoadedFile {
   pageCount: number;
   buffer: ArrayBuffer;
 }
-
-type Status =
-  | { kind: "idle" }
-  | { kind: "reading" }
-  | { kind: "loading-worker" }
-  | { kind: "rotating" }
-  | { kind: "done"; rotatedPageCount: number; totalPageCount: number; filename: string }
-  | { kind: "error"; message: string };
 
 const ANGLES: RotationAngle[] = [90, 180, 270];
 
@@ -38,7 +32,7 @@ export default function PdfRotator() {
 
   const ensureWorker = useCallback(async (): Promise<Worker> => {
     if (workerRef.current) return workerRef.current;
-    setStatus({ kind: "loading-worker" });
+    setStatus({ kind: "loading", label: "Preparing rotator" });
     const worker = new Worker(
       new URL("../../lib/pdf/rotate.worker.ts", import.meta.url),
       { type: "module" }
@@ -60,7 +54,7 @@ export default function PdfRotator() {
       });
       return;
     }
-    setStatus({ kind: "reading" });
+    setStatus({ kind: "loading", label: "Reading PDF" });
     try {
       const buffer = await first.arrayBuffer();
       const pageCount = await readPageCount(buffer);
@@ -97,7 +91,7 @@ export default function PdfRotator() {
         worker.addEventListener("message", handler);
       });
 
-      setStatus({ kind: "rotating" });
+      setStatus({ kind: "working", label: "Rotating in your browser" });
       const buffer = file.buffer.slice(0);
       const req: RotateRequest = {
         id,
@@ -113,12 +107,14 @@ export default function PdfRotator() {
         setStatus({ kind: "error", message: result.error });
         return;
       }
-      downloadBlob(result.bytes, result.filename, "application/pdf");
+      downloadBlob(result.bytes, result.filename, MIME.PDF);
       setStatus({
         kind: "done",
-        rotatedPageCount: result.rotatedPageCount,
-        totalPageCount: result.totalPageCount,
         filename: result.filename,
+        meta: {
+          rotatedPageCount: result.rotatedPageCount,
+          totalPageCount: result.totalPageCount,
+        },
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -127,9 +123,8 @@ export default function PdfRotator() {
   };
 
   const busy =
-    status.kind === "reading" ||
-    status.kind === "loading-worker" ||
-    status.kind === "rotating";
+    status.kind === "loading" ||
+    status.kind === "working";
 
   return (
     <div class="w-full">
@@ -224,7 +219,7 @@ export default function PdfRotator() {
               disabled={busy}
               class="font-mono text-sm px-5 py-2.5 rounded-md bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:bg-[var(--color-fg-dim)] disabled:cursor-not-allowed transition-colors"
             >
-              {busy ? statusLabel(status) : "Rotate & download"}
+              {busy ? buttonLabel(status) : "Rotate & download"}
             </button>
           </div>
         </div>
@@ -236,18 +231,15 @@ export default function PdfRotator() {
         aria-atomic="true"
         class="mt-4 min-h-[1.5rem] font-mono text-sm"
       >
-        {status.kind === "reading" && (
-          <span class="text-[var(--color-fg-muted)]">Reading PDF…</span>
+        {status.kind === "loading" && (
+          <span class="text-[var(--color-fg-muted)]">{status.label}…</span>
         )}
-        {status.kind === "loading-worker" && (
-          <span class="text-[var(--color-fg-muted)]">Preparing rotator…</span>
-        )}
-        {status.kind === "rotating" && (
-          <span class="text-[var(--color-accent)]">Rotating in your browser…</span>
+        {status.kind === "working" && (
+          <span class="text-[var(--color-accent)]">{status.label}…</span>
         )}
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
-            ✓ Rotated {status.rotatedPageCount} of {status.totalPageCount} page{status.totalPageCount === 1 ? "" : "s"} → {status.filename} downloaded.
+            ✓ Rotated {(status.meta?.rotatedPageCount as number) ?? 0} of {(status.meta?.totalPageCount as number) ?? 0} page{((status.meta?.totalPageCount as number) ?? 0) === 1 ? "" : "s"} → {status.filename} downloaded.
           </span>
         )}
         {status.kind === "error" && (
@@ -258,15 +250,9 @@ export default function PdfRotator() {
   );
 }
 
-function statusLabel(status: Status): string {
-  switch (status.kind) {
-    case "reading":
-      return "Reading…";
-    case "loading-worker":
-      return "Loading…";
-    case "rotating":
-      return "Rotating…";
-    default:
-      return "Working…";
-  }
+function buttonLabel(status: Status): string {
+  if (status.kind === "loading" && status.label === "Reading PDF") return "Reading…";
+  if (status.kind === "loading" && status.label === "Preparing rotator") return "Loading…";
+  if (status.kind === "working") return "Rotating…";
+  return "Working…";
 }

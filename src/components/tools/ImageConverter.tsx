@@ -1,6 +1,8 @@
 import { useCallback, useState } from "preact/hooks";
 import FileDropZone from "../shared/FileDropZone";
+import type { Status } from "../shared/Widgets";
 import { downloadBlob, formatSize, newId } from "../../lib/util/file";
+import { MIME } from "../../lib/util/mime";
 import { zipEntries } from "../../lib/util/zip";
 import { convertImage } from "../../lib/image/convert";
 import {
@@ -17,13 +19,6 @@ interface QueuedFile {
   file: File;
   inputFormat: SupportedInputFormat | null;
 }
-
-type Status =
-  | { kind: "idle" }
-  | { kind: "converting"; done: number; total: number }
-  | { kind: "packing" }
-  | { kind: "done"; count: number; filename: string }
-  | { kind: "error"; message: string };
 
 export default function ImageConverter() {
   const [files, setFiles] = useState<QueuedFile[]>([]);
@@ -52,7 +47,7 @@ export default function ImageConverter() {
   const onConvert = async () => {
     if (files.length === 0) return;
     const total = files.length;
-    setStatus({ kind: "converting", done: 0, total });
+    setStatus({ kind: "working", label: `Converting 0 of ${total}`, p: 0 });
     const results: { name: string; bytes: Uint8Array; blob: Blob }[] = [];
     try {
       for (let i = 0; i < files.length; i++) {
@@ -68,7 +63,11 @@ export default function ImageConverter() {
           });
           return;
         }
-        setStatus({ kind: "converting", done: i + 1, total });
+        setStatus({
+          kind: "working",
+          label: `Converting ${i + 1} of ${total}`,
+          p: (i + 1) / total,
+        });
       }
       if (results.length === 1) {
         const only = results[0];
@@ -76,12 +75,12 @@ export default function ImageConverter() {
         setStatus({ kind: "done", count: 1, filename: only.name });
         return;
       }
-      setStatus({ kind: "packing" });
+      setStatus({ kind: "working", label: "Packing ZIP" });
       const zip = zipEntries(
         results.map((r) => ({ name: r.name, bytes: r.bytes }))
       );
       const zipName = `images-${outputFormat === "jpeg" ? "jpg" : outputFormat}.zip`;
-      downloadBlob(zip, zipName, "application/zip");
+      downloadBlob(zip, zipName, MIME.ZIP);
       setStatus({ kind: "done", count: results.length, filename: zipName });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -89,7 +88,7 @@ export default function ImageConverter() {
     }
   };
 
-  const busy = status.kind === "converting" || status.kind === "packing";
+  const busy = status.kind === "working";
 
   return (
     <div class="w-full">
@@ -207,7 +206,7 @@ export default function ImageConverter() {
               class="font-mono text-sm px-5 py-2.5 rounded-md bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:bg-[var(--color-fg-dim)] disabled:cursor-not-allowed transition-colors"
             >
               {busy
-                ? statusLabel(status)
+                ? `${status.label ?? "Working"}…`
                 : `Convert ${files.length} → ${FORMAT_LABEL[outputFormat]}`}
             </button>
           </div>
@@ -220,13 +219,13 @@ export default function ImageConverter() {
         aria-atomic="true"
         class="mt-4 min-h-[1.5rem] font-mono text-sm"
       >
-        {status.kind === "converting" && (
-          <span class="text-[var(--color-accent)]">
-            Converting {status.done} of {status.total}…
-          </span>
-        )}
-        {status.kind === "packing" && (
+        {status.kind === "working" && status.label === "Packing ZIP" && (
           <span class="text-[var(--color-fg-muted)]">Packing ZIP…</span>
+        )}
+        {status.kind === "working" && status.label !== "Packing ZIP" && (
+          <span class="text-[var(--color-accent)]">
+            {status.label}…
+          </span>
         )}
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
@@ -239,15 +238,4 @@ export default function ImageConverter() {
       </div>
     </div>
   );
-}
-
-function statusLabel(status: Status): string {
-  switch (status.kind) {
-    case "converting":
-      return `Converting ${status.done}/${status.total}…`;
-    case "packing":
-      return "Packing…";
-    default:
-      return "Working…";
-  }
 }

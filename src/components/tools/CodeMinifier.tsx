@@ -1,5 +1,7 @@
 import { useState } from "preact/hooks";
-import { downloadBlob } from "../../lib/util/file";
+import OutputPanel from "../shared/OutputPanel";
+import FilePickButton from "../shared/FilePickButton";
+import type { Status } from "../shared/Widgets";
 import { minify } from "../../lib/code/minify";
 import {
   MINIFY_LANGUAGES,
@@ -10,28 +12,18 @@ import {
   type Language,
 } from "../../lib/code/languages";
 
-type Status =
-  | { kind: "idle" }
-  | { kind: "working" }
-  | { kind: "done"; bytes: number; ratio: number }
-  | { kind: "error"; message: string };
-
 export default function CodeMinifier() {
   const [language, setLanguage] = useState<Language>("javascript");
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
-  const onFile = async (e: Event) => {
-    const target = e.currentTarget as HTMLInputElement;
-    const file = target.files?.[0];
-    if (!file) return;
+  const onPickFile = async (file: File) => {
     setInput(await file.text());
     setOutput("");
     setStatus({ kind: "idle" });
     const detected = detectFromFile(file);
     if (detected && MINIFY_LANGUAGES.includes(detected)) setLanguage(detected);
-    target.value = "";
   };
 
   const onRun = async () => {
@@ -46,30 +38,12 @@ export default function CodeMinifier() {
       const outputBytes = new TextEncoder().encode(result).length;
       const ratio = inputBytes > 0 ? outputBytes / inputBytes : 1;
       setOutput(result);
-      setStatus({ kind: "done", bytes: outputBytes, ratio });
+      setStatus({ kind: "done", size: outputBytes, meta: { ratio } });
     } catch (err) {
       setStatus({
         kind: "error",
         message: err instanceof Error ? err.message : String(err),
       });
-    }
-  };
-
-  const onDownload = () => {
-    if (!output) return;
-    downloadBlob(
-      new Blob([output], { type: LANGUAGE_MIME[language] }),
-      `min.${LANGUAGE_EXT[language]}`,
-      LANGUAGE_MIME[language]
-    );
-  };
-
-  const onCopy = async () => {
-    if (!output) return;
-    try {
-      await navigator.clipboard.writeText(output);
-    } catch {
-      // ignore
     }
   };
 
@@ -95,15 +69,13 @@ export default function CodeMinifier() {
             ))}
           </select>
         </label>
-        <label class="font-mono text-xs text-[var(--color-fg-dim)] hover:text-[var(--color-accent)] cursor-pointer ml-auto">
-          pick a file
-          <input
-            type="file"
-            onChange={onFile}
-            class="sr-only"
-            aria-label="Pick a source file"
+        <div class="ml-auto">
+          <FilePickButton
+            onFile={onPickFile}
+            label="pick a file"
+            ariaLabel="Pick a source file"
           />
-        </label>
+        </div>
       </div>
 
       <label
@@ -137,37 +109,20 @@ export default function CodeMinifier() {
 
       {(output || status.kind === "error") && (
         <div class="mt-6">
-          <label class="block font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-2">
-            Minified
-          </label>
-          <div class="rounded-md border-2 border-[var(--color-border)] bg-[var(--color-surface)]">
-            <textarea
-              value={output}
-              readOnly
-              rows={12}
-              aria-label="Minified output"
-              class="block w-full bg-transparent p-3 font-mono text-sm text-[var(--color-fg)] focus:outline-none resize-y"
-              spellcheck={false}
-            />
-            <div class="flex items-center justify-between px-3 py-2 border-t border-[var(--color-border)] text-xs font-mono text-[var(--color-fg-dim)]">
-              <div class="flex gap-3">
-                <button type="button" onClick={onCopy} class="hover:text-[var(--color-accent)]">
-                  copy
-                </button>
-                <button type="button" onClick={onDownload} class="hover:text-[var(--color-accent)]">
-                  download
-                </button>
-              </div>
-              <span>{output.length > 0 ? `${output.length.toLocaleString()} chars` : "empty"}</span>
-            </div>
-          </div>
+          <OutputPanel
+            value={output}
+            ariaLabel="Minified output"
+            label="Minified"
+            filename={`min.${LANGUAGE_EXT[language]}`}
+            mime={LANGUAGE_MIME[language]}
+          />
         </div>
       )}
 
       <div role="status" aria-live="polite" class="mt-4 min-h-[1.5rem] font-mono text-sm">
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
-            ✓ {status.bytes.toLocaleString()} bytes ({Math.round((1 - status.ratio) * 100)}% smaller)
+            ✓ {(status.size ?? 0).toLocaleString()} bytes ({Math.round((1 - ((status.meta?.ratio as number) ?? 1)) * 100)}% smaller)
           </span>
         )}
         {status.kind === "error" && (

@@ -1,21 +1,12 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
 import FileDropZone from "../shared/FileDropZone";
+import type { Status } from "../shared/Widgets";
 import { downloadBlob, formatSize } from "../../lib/util/file";
+import { stripExt } from "../../lib/util/filename";
 import { readExifSummary, stripExifFromJpeg, type ExifSummary } from "../../lib/image/exif";
 
 interface LoadedFile {
   file: File;
-}
-
-type Status =
-  | { kind: "idle" }
-  | { kind: "reading" }
-  | { kind: "stripping" }
-  | { kind: "done"; filename: string; hadExif: boolean }
-  | { kind: "error"; message: string };
-
-function basenameWithoutExt(name: string): string {
-  return name.replace(/\.[a-z0-9]+$/i, "");
 }
 
 export default function ExifStripper() {
@@ -39,13 +30,13 @@ export default function ExifStripper() {
     }
     setFile({ file: first });
     setExif(null);
-    setStatus({ kind: "reading" });
+    setStatus({ kind: "loading", label: "Reading EXIF" });
   }, []);
 
   // Read EXIF in a side-effect so the UI shows a "Reading…" state while it's
   // happening (parsing is fast but lazy-imports a chunk).
   useEffect(() => {
-    if (!file || status.kind !== "reading") return;
+    if (!file || status.kind !== "loading") return;
     let cancelled = false;
     (async () => {
       try {
@@ -75,16 +66,16 @@ export default function ExifStripper() {
 
   const onStrip = async () => {
     if (!file) return;
-    setStatus({ kind: "stripping" });
+    setStatus({ kind: "working", label: "Stripping EXIF in your browser" });
     try {
       const blob = await stripExifFromJpeg(file.file);
-      const base = basenameWithoutExt(file.file.name) || "image";
+      const base = stripExt(file.file.name) || "image";
       const filename = `${base}-no-exif.jpg`;
       downloadBlob(blob, filename, "image/jpeg");
       setStatus({
         kind: "done",
         filename,
-        hadExif: !!exif && Object.keys(exif).length > 0,
+        meta: { hadExif: !!exif && Object.keys(exif).length > 0 },
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -92,7 +83,7 @@ export default function ExifStripper() {
     }
   };
 
-  const busy = status.kind === "reading" || status.kind === "stripping";
+  const busy = status.kind === "loading" || status.kind === "working";
 
   return (
     <div class="w-full">
@@ -146,7 +137,7 @@ export default function ExifStripper() {
             </div>
           )}
 
-          {status.kind !== "reading" && exif && Object.keys(exif).length === 0 && (
+          {status.kind !== "loading" && exif && Object.keys(exif).length === 0 && (
             <p class="mt-4 font-mono text-xs text-[var(--color-fg-muted)]">
               No EXIF data detected. Stripping is still safe — it&rsquo;ll just be a no-op.
             </p>
@@ -171,11 +162,11 @@ export default function ExifStripper() {
         aria-atomic="true"
         class="mt-4 min-h-[1.5rem] font-mono text-sm"
       >
-        {status.kind === "reading" && (
-          <span class="text-[var(--color-fg-muted)]">Reading EXIF…</span>
+        {status.kind === "loading" && (
+          <span class="text-[var(--color-fg-muted)]">{status.label}…</span>
         )}
-        {status.kind === "stripping" && (
-          <span class="text-[var(--color-accent)]">Stripping EXIF in your browser…</span>
+        {status.kind === "working" && (
+          <span class="text-[var(--color-accent)]">{status.label}…</span>
         )}
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">

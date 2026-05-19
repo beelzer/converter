@@ -1,21 +1,11 @@
 ---
 import ToolLayout from "../components/ToolLayout.astro";
-
-const tools = [
-  { slug: "pdf", name: "PDF", blurb: "Merge, split, rotate, organize, convert" },
-  { slug: "image", name: "Image", blurb: "Convert, resize, compress, favicon, EXIF" },
-  { slug: "audio-video", name: "Audio / Video", blurb: "Convert, trim, GIF, extract audio, frames, merge" },
-  { slug: "data", name: "Data", blurb: "JSON / YAML / XML / TOML / CSV — convert, format, validate, TS types" },
-  { slug: "color", name: "Color", blurb: "Convert, palette, WCAG contrast" },
-  { slug: "encode", name: "Encode", blurb: "Base64, URL, JWT, SHA hashes" },
-  { slug: "document", name: "Document", blurb: "Markdown, HTML, DOCX, PDF text" },
-  { slug: "archive", name: "Archive", blurb: "ZIP, TAR, GZIP, RAR — create and extract" },
-  { slug: "code", name: "Code", blurb: "Beautify or minify JS, TS, CSS, HTML, JSON, SQL and more" },
-];
+import { TOOLS } from "../lib/tools";
+import { SITE_NAME } from "../lib/site";
 ---
 
 <ToolLayout
-  title="404 — Page not found | tools.dcln.me"
+  title={`404 — Page not found | ${SITE_NAME}`}
   description="The page you're looking for doesn't exist. Pick a tool from the list and keep going."
   noindex
 >
@@ -36,7 +26,7 @@ const tools = [
       Available tools
     </h2>
     <ul class="grid gap-3 sm:grid-cols-1">
-      {tools.map((tool) => (
+      {TOOLS.map((tool) => (
         <li>
           <a
             href={`/${tool.slug}`}
@@ -51,7 +41,7 @@ const tools = [
               </span>
             </div>
             <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
-              {tool.blurb}
+              {tool.shortBlurb}
             </p>
           </a>
         </li>

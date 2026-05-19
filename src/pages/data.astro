@@ -1,173 +1,84 @@
 ---
-import ToolLayout from "../components/ToolLayout.astro";
+import HubPageLayout from "../components/HubPageLayout.astro";
 import DataHub from "../components/tools/DataHub.tsx";
 
 const title = "Data tools — convert CSV / JSON / YAML / XML / TOML | tools.dcln.me";
 const description =
   "All-in-one data toolkit that runs entirely in your browser. Convert between JSON, YAML, XML, TOML, CSV and TSV. Format, minify, validate, generate TypeScript types. Files never leave your device.";
 
-const howToSchema = {
-  "@context": "https://schema.org",
-  "@type": "HowTo",
-  name: "How to convert and format data files in your browser",
-  description:
-    "Convert between JSON, YAML, XML, TOML, CSV and TSV, or format / validate / generate types — all locally.",
-  step: [
-    {
-      "@type": "HowToStep",
-      position: 1,
-      name: "Pick a mode",
-      text: "Choose a tab: Convert, Format / Minify, Validate, or TS Types.",
-    },
-    {
-      "@type": "HowToStep",
-      position: 2,
-      name: "Paste or drop your data",
-      text: "Paste text into the editor, or drop a file. The input format is auto-detected from the file extension.",
-    },
-    {
-      "@type": "HowToStep",
-      position: 3,
-      name: "Pick the output format and run",
-      text: "Choose the output format, optional minify or indent setting, then click the action button. Copy or download the result.",
-    },
-  ],
-};
+const lead =
+  "Convert between JSON, YAML, XML, TOML, CSV and TSV. Format, minify, validate, or generate TypeScript types — all running locally in your browser.";
 
-const faqSchema = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: [
-    {
-      "@type": "Question",
-      name: "Does my data get uploaded anywhere?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "No. All parsing and serialization happens in your browser using small open-source libraries (papaparse, js-yaml, fast-xml-parser, smol-toml). Open the network tab while you convert — you won't see a single byte of your data leave the device.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Which formats are supported?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "JSON, YAML, XML, TOML, CSV and TSV — in both directions. XLSX (Excel) is deferred to a future release because the smallest viable in-browser library is 600KB+ and most XLSX-to-CSV needs are well served by Numbers, LibreOffice, or Excel's own Save As.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "How accurate are the inferred TypeScript types?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "The type generator walks your sample and infers structural types — primitives, arrays of T, nested interfaces, and unions including null. It handles the 95% case (REST API responses, config files) well, but it can't know about your discriminators or optional-only fields that don't appear in the sample. Paste a representative example with all the variants and edge cases for best results.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Why does TOML conversion sometimes fail?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "TOML requires a table (object) at the top level — it has no concept of a top-level array. If your source is an array of records, convert via JSON first (your records become an array under a root key) or use CSV / JSON Lines instead.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Does CSV preserve numeric types?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Yes. The parser uses dynamic typing — values that look like numbers, booleans, or null are converted automatically. If you need to preserve everything as a string (e.g. zip codes with leading zeros), quote them in the source CSV and they'll stay as strings.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Does it work offline?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Yes, after the page has loaded once. Each format library is small and lazy-loaded only when you actually use it — so the first conversion you run downloads ~50KB, and subsequent ones in the same format are instant.",
-      },
-    },
-  ],
-};
+const howToSteps = [
+  {
+    name: "Pick a mode",
+    text: "Choose a tab: Convert, Format / Minify, Validate, or TS Types.",
+  },
+  {
+    name: "Paste or drop your data",
+    text: "Paste text into the editor, or drop a file. The input format is auto-detected from the file extension.",
+  },
+  {
+    name: "Pick the output format and run",
+    text: "Choose the output format, optional minify or indent setting, then click the action button. Copy or download the result.",
+  },
+];
 
-const breadcrumbSchema = {
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  itemListElement: [
-    {
-      "@type": "ListItem",
-      position: 1,
-      name: "Tools",
-      item: "https://tools.dcln.me/",
-    },
-    {
-      "@type": "ListItem",
-      position: 2,
-      name: "Data",
-      item: "https://tools.dcln.me/data",
-    },
-  ],
-};
+const howToBlocks = [
+  {
+    title: "Pick a mode.",
+    body: "Four operations: Convert, Format / Minify, Validate, TS Types.",
+  },
+  {
+    title: "Paste or drop a file.",
+    body: "The input format is detected from the file extension. You can override it from the dropdown if detection guesses wrong.",
+  },
+  {
+    title: "Copy or download.",
+    body: "Output appears below — copy to clipboard, or download as a properly-named file with the right MIME type.",
+  },
+];
+
+const faq = [
+  {
+    q: "Does my data get uploaded anywhere?",
+    a: "No. All parsing and serialization happens in your browser using small open-source libraries (papaparse, js-yaml, fast-xml-parser, smol-toml). Open the network tab while you convert — you won't see a single byte of your data leave the device.",
+  },
+  {
+    q: "Which formats are supported?",
+    a: "JSON, YAML, XML, TOML, CSV and TSV — in both directions. XLSX (Excel) is deferred to a future release because the smallest viable in-browser library is 600KB+ and most XLSX-to-CSV needs are well served by Numbers, LibreOffice, or Excel's own Save As.",
+  },
+  {
+    q: "How accurate are the inferred TypeScript types?",
+    a: "The type generator walks your sample and infers structural types — primitives, arrays of T, nested interfaces, and unions including null. It handles the 95% case (REST API responses, config files) well, but it can't know about your discriminators or optional-only fields that don't appear in the sample. Paste a representative example with all the variants and edge cases for best results.",
+  },
+  {
+    q: "Why does TOML conversion sometimes fail?",
+    a: "TOML requires a table (object) at the top level — it has no concept of a top-level array. If your source is an array of records, convert via JSON first (your records become an array under a root key) or use CSV / JSON Lines instead.",
+  },
+  {
+    q: "Does CSV preserve numeric types?",
+    a: "Yes. The parser uses dynamic typing — values that look like numbers, booleans, or null are converted automatically. If you need to preserve everything as a string (e.g. zip codes with leading zeros), quote them in the source CSV and they'll stay as strings.",
+  },
+  {
+    q: "Does it work offline?",
+    a: "Yes, after the page has loaded once. Each format library is small and lazy-loaded only when you actually use it — so the first conversion you run downloads ~50KB, and subsequent ones in the same format are instant.",
+  },
+];
 ---
 
-<ToolLayout title={title} description={description} schema={[howToSchema, faqSchema, breadcrumbSchema]}>
-  <section class="mx-auto max-w-5xl px-6 pt-12 sm:pt-16">
-    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-3 uppercase tracking-widest">
-      <a href="/" class="hover:text-[var(--color-fg)]">tools</a>
-      <span class="mx-2">/</span>
-      <span>data</span>
-    </p>
-    <h1 class="font-mono text-3xl sm:text-4xl font-semibold leading-tight">
-      Data tools.
-    </h1>
-    <p class="mt-4 text-lg text-[var(--color-fg-muted)] leading-relaxed">
-      Convert between JSON, YAML, XML, TOML, CSV and TSV. Format, minify, validate, or generate TypeScript types — all running locally in your browser.
-    </p>
-  </section>
-
-  <section class="mx-auto max-w-5xl px-6 mt-10" aria-label="Data toolkit">
-    <DataHub client:load />
-  </section>
-
-  <section class="mx-auto max-w-5xl px-6 mt-16" aria-labelledby="how-heading">
-    <h2 id="how-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
-      How it works
-    </h2>
-    <ol class="space-y-4 text-[var(--color-fg-muted)]">
-      <li class="flex gap-4">
-        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">01</span>
-        <span>
-          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Pick a mode.</strong>
-          Four operations: Convert, Format / Minify, Validate, TS Types.
-        </span>
-      </li>
-      <li class="flex gap-4">
-        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">02</span>
-        <span>
-          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Paste or drop a file.</strong>
-          The input format is detected from the file extension. You can override it from the dropdown if detection guesses wrong.
-        </span>
-      </li>
-      <li class="flex gap-4">
-        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">03</span>
-        <span>
-          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Copy or download.</strong>
-          Output appears below — copy to clipboard, or download as a properly-named file with the right MIME type.
-        </span>
-      </li>
-    </ol>
-  </section>
-
-  <section class="mx-auto max-w-5xl px-6 mt-16 mb-12" aria-labelledby="faq-heading">
-    <h2 id="faq-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
-      FAQ
-    </h2>
-    <dl class="space-y-6">
-      {faqSchema.mainEntity.map((qa) => (
-        <div>
-          <dt class="font-mono text-base text-[var(--color-fg)] mb-2">{qa.name}</dt>
-          <dd class="text-[var(--color-fg-muted)] leading-relaxed">{qa.acceptedAnswer.text}</dd>
-        </div>
-      ))}
-    </dl>
-  </section>
-</ToolLayout>
+<HubPageLayout
+  title={title}
+  description={description}
+  slug="data"
+  label="Data"
+  hubHeading="Data tools."
+  lead={lead}
+  howToName="How to convert and format data files in your browser"
+  howToDescription="Convert between JSON, YAML, XML, TOML, CSV and TSV, or format / validate / generate types — all locally."
+  howToSteps={howToSteps}
+  howToBlocks={howToBlocks}
+  faq={faq}
+>
+  <DataHub client:load />
+</HubPageLayout>

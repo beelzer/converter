@@ -1,15 +1,11 @@
 import { useState } from "preact/hooks";
 import DataInput from "../shared/DataInput";
-import { downloadBlob } from "../../lib/util/file";
+import OutputPanel from "../shared/OutputPanel";
+import type { Status } from "../shared/Widgets";
+import { MIME } from "../../lib/util/mime";
 import { parseData } from "../../lib/data/parse";
 import { jsonToTypeScript } from "../../lib/data/typegen";
 import { detectFromText, type DataFormat } from "../../lib/data/formats";
-
-type Status =
-  | { kind: "idle" }
-  | { kind: "working" }
-  | { kind: "done" }
-  | { kind: "error"; message: string };
 
 // JSON-shaped inputs only — YAML, CSV etc. produce JS objects too and could
 // be supported, but TS interface generation maps most cleanly to JSON.
@@ -58,24 +54,6 @@ export default function DataTypeGenerator() {
         kind: "error",
         message: err instanceof Error ? err.message : String(err),
       });
-    }
-  };
-
-  const onDownload = () => {
-    if (!output) return;
-    downloadBlob(
-      new Blob([output], { type: "text/typescript" }),
-      `${rootName || "types"}.ts`,
-      "text/typescript"
-    );
-  };
-
-  const onCopy = async () => {
-    if (!output) return;
-    try {
-      await navigator.clipboard.writeText(output);
-    } catch {
-      // ignore
     }
   };
 
@@ -136,44 +114,14 @@ export default function DataTypeGenerator() {
 
       {(output || status.kind === "error") && (
         <div class="mt-6">
-          <div class="flex items-center justify-between mb-2">
-            <label class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)]">
-              TypeScript
-            </label>
-          </div>
-          <div class="rounded-lg border-2 border-[var(--color-border)] bg-[var(--color-surface)]">
-            <textarea
-              value={output}
-              readOnly
-              rows={12}
-              aria-label="Generated TypeScript"
-              class="block w-full bg-transparent p-3 font-mono text-sm text-[var(--color-fg)] focus:outline-none resize-y"
-              spellcheck={false}
-            />
-            <div class="flex items-center justify-between px-3 py-2 border-t border-[var(--color-border)] text-xs font-mono text-[var(--color-fg-dim)]">
-              <div class="flex gap-3">
-                <button
-                  type="button"
-                  onClick={onCopy}
-                  disabled={!output}
-                  class="hover:text-[var(--color-accent)] disabled:opacity-50"
-                >
-                  copy
-                </button>
-                <button
-                  type="button"
-                  onClick={onDownload}
-                  disabled={!output}
-                  class="hover:text-[var(--color-accent)] disabled:opacity-50"
-                >
-                  download
-                </button>
-              </div>
-              <span>
-                {output.length > 0 ? `${output.split("\n").length} lines` : "empty"}
-              </span>
-            </div>
-          </div>
+          <OutputPanel
+            value={output}
+            ariaLabel="Generated TypeScript"
+            label="TypeScript"
+            countUnit="lines"
+            filename={`${rootName || "types"}.ts`}
+            mime={MIME.TEXT_TYPESCRIPT}
+          />
         </div>
       )}
 

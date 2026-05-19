@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { copyText } from "../../lib/util/clipboard";
 import {
   formatHex,
   parseAny,
@@ -27,12 +28,10 @@ export default function ColorPalette() {
   const swatches = harmony(base, kind);
 
   const copy = async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
+    const ok = await copyText(value);
+    if (ok) {
       setCopied(value);
       setTimeout(() => setCopied(null), 1200);
-    } catch {
-      // ignore
     }
   };
 

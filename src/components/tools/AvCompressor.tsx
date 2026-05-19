@@ -14,26 +14,21 @@ import {
   ACCEPT_VIDEO,
   VIDEO_CONTAINERS,
   VIDEO_CONTAINER_LABEL,
-  basenameWithoutExt,
   mimeForVideo,
   type VideoContainer,
 } from "../../lib/av/formats";
-
-type Preset = "light" | "medium" | "heavy";
-
-const PRESETS: Record<Preset, { videoBitrate: number; audioBitrate: number; maxWidth: number; label: string; hint: string }> = {
-  light: { videoBitrate: 4_000_000, audioBitrate: 192_000, maxWidth: 1920, label: "Light", hint: "~4 Mbps, keep 1080p" },
-  medium: { videoBitrate: 1_500_000, audioBitrate: 128_000, maxWidth: 1280, label: "Medium", hint: "~1.5 Mbps, cap 720p" },
-  heavy: { videoBitrate: 600_000, audioBitrate: 96_000, maxWidth: 854, label: "Heavy", hint: "~600 kbps, cap 480p" },
-};
-
-const PRESET_KEYS: Preset[] = ["light", "medium", "heavy"];
+import {
+  COMPRESSION_PRESETS,
+  COMPRESSION_PRESET_KEYS,
+  type CompressionPreset,
+} from "../../lib/av/compressionPresets";
+import { stripExt } from "../../lib/util/filename";
 
 export default function AvCompressor() {
   const [file, setFile] = useState<File | null>(null);
   const [meta, setMeta] = useState<MediaMetadata | null>(null);
   const [container, setContainer] = useState<VideoContainer>("mp4");
-  const [preset, setPreset] = useState<Preset>("medium");
+  const [preset, setPreset] = useState<CompressionPreset>("medium");
   const [status, setStatus] = useState<AvStatus>({ kind: "idle" });
 
   const accept = async (incoming: FileList | File[]) => {
@@ -55,7 +50,7 @@ export default function AvCompressor() {
 
   const onCompress = async () => {
     if (!file) return;
-    const p = PRESETS[preset];
+    const p = COMPRESSION_PRESETS[preset];
     setStatus({ kind: "working", p: 0, label: "Compressing" });
     try {
       const bytes = await compressVideo(file, {
@@ -66,7 +61,7 @@ export default function AvCompressor() {
         onProgress: (progress) =>
           setStatus({ kind: "working", p: progress, label: "Compressing" }),
       });
-      const filename = `${basenameWithoutExt(file.name)}-compressed.${container}`;
+      const filename = `${stripExt(file.name)}-compressed.${container}`;
       downloadBlob(bytes, filename, mimeForVideo(container));
       setStatus({ kind: "done", filename, size: bytes.byteLength });
     } catch (err) {
@@ -78,7 +73,7 @@ export default function AvCompressor() {
   };
 
   const busy = status.kind === "loading" || status.kind === "working";
-  const p = PRESETS[preset];
+  const p = COMPRESSION_PRESETS[preset];
 
   return (
     <div class="w-full">
@@ -96,11 +91,11 @@ export default function AvCompressor() {
           <MetaSummary file={file} meta={meta} />
 
           <Fieldset legend="Compression preset">
-            <Pills<Preset>
-              options={PRESET_KEYS}
+            <Pills<CompressionPreset>
+              options={COMPRESSION_PRESET_KEYS}
               value={preset}
               onChange={setPreset}
-              label={(k) => PRESETS[k].label}
+              label={(k) => COMPRESSION_PRESETS[k].label}
               disabled={busy}
             />
             <p class="mt-2 font-mono text-xs text-[var(--color-fg-dim)]">{p.hint}</p>
@@ -124,7 +119,7 @@ export default function AvCompressor() {
               class="font-mono text-sm px-5 py-2.5 rounded-md bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:bg-[var(--color-fg-dim)] disabled:cursor-not-allowed transition-colors"
             >
               {status.kind === "working"
-                ? `Compressing… ${Math.round(status.p * 100)}%`
+                ? `Compressing… ${Math.round((status.p ?? 0) * 100)}%`
                 : `Compress → ${VIDEO_CONTAINER_LABEL[container]}`}
             </button>
           </div>

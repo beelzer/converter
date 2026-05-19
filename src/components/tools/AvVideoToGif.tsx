@@ -176,7 +176,7 @@ export default function AvVideoToGif() {
               class="font-mono text-sm px-5 py-2.5 rounded-md bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:bg-[var(--color-fg-dim)] disabled:cursor-not-allowed transition-colors"
             >
               {status.kind === "working"
-                ? `Encoding… ${Math.round(status.p * 100)}%`
+                ? `Encoding… ${Math.round((status.p ?? 0) * 100)}%`
                 : "Make GIF"}
             </button>
           </div>

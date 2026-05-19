@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import FileDropZone from "../shared/FileDropZone";
+import type { Status } from "../shared/Widgets";
 import { downloadBlob, formatSize } from "../../lib/util/file";
+import { MIME } from "../../lib/util/mime";
 import { readPageCount } from "../../lib/pdf/split";
 import type { SplitRequest, SplitResponse } from "../../lib/pdf/split.worker";
 
@@ -10,14 +12,6 @@ interface LoadedFile {
   pageCount: number;
   buffer: ArrayBuffer;
 }
-
-type Status =
-  | { kind: "idle" }
-  | { kind: "reading" }
-  | { kind: "loading-worker" }
-  | { kind: "splitting" }
-  | { kind: "done"; pageCount: number; filename: string }
-  | { kind: "error"; message: string };
 
 export default function PdfSplitter() {
   const [file, setFile] = useState<LoadedFile | null>(null);
@@ -34,7 +28,7 @@ export default function PdfSplitter() {
 
   const ensureWorker = useCallback(async (): Promise<Worker> => {
     if (workerRef.current) return workerRef.current;
-    setStatus({ kind: "loading-worker" });
+    setStatus({ kind: "loading", label: "Preparing splitter" });
     const worker = new Worker(
       new URL("../../lib/pdf/split.worker.ts", import.meta.url),
       { type: "module" }
@@ -56,7 +50,7 @@ export default function PdfSplitter() {
       });
       return;
     }
-    setStatus({ kind: "reading" });
+    setStatus({ kind: "loading", label: "Reading PDF" });
     try {
       const buffer = await first.arrayBuffer();
       const pageCount = await readPageCount(buffer);
@@ -105,7 +99,7 @@ export default function PdfSplitter() {
         worker.addEventListener("message", handler);
       });
 
-      setStatus({ kind: "splitting" });
+      setStatus({ kind: "working", label: "Extracting in your browser" });
       const buffer = file.buffer.slice(0);
       const req: SplitRequest = {
         id,
@@ -120,10 +114,10 @@ export default function PdfSplitter() {
         setStatus({ kind: "error", message: result.error });
         return;
       }
-      downloadBlob(result.bytes, result.filename, "application/pdf");
+      downloadBlob(result.bytes, result.filename, MIME.PDF);
       setStatus({
         kind: "done",
-        pageCount: result.pageCount,
+        count: result.pageCount,
         filename: result.filename,
       });
     } catch (err) {
@@ -133,9 +127,8 @@ export default function PdfSplitter() {
   };
 
   const busy =
-    status.kind === "reading" ||
-    status.kind === "loading-worker" ||
-    status.kind === "splitting";
+    status.kind === "loading" ||
+    status.kind === "working";
 
   return (
     <div class="w-full">
@@ -206,7 +199,7 @@ export default function PdfSplitter() {
               disabled={busy || !pages.trim()}
               class="font-mono text-sm px-5 py-2.5 rounded-md bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:bg-[var(--color-fg-dim)] disabled:cursor-not-allowed transition-colors"
             >
-              {busy ? statusLabel(status) : "Extract & download"}
+              {busy ? buttonLabel(status) : "Extract & download"}
             </button>
           </div>
         </div>
@@ -218,18 +211,15 @@ export default function PdfSplitter() {
         aria-atomic="true"
         class="mt-4 min-h-[1.5rem] font-mono text-sm"
       >
-        {status.kind === "reading" && (
-          <span class="text-[var(--color-fg-muted)]">Reading PDF…</span>
+        {status.kind === "loading" && (
+          <span class="text-[var(--color-fg-muted)]">{status.label}…</span>
         )}
-        {status.kind === "loading-worker" && (
-          <span class="text-[var(--color-fg-muted)]">Preparing splitter…</span>
-        )}
-        {status.kind === "splitting" && (
-          <span class="text-[var(--color-accent)]">Extracting in your browser…</span>
+        {status.kind === "working" && (
+          <span class="text-[var(--color-accent)]">{status.label}…</span>
         )}
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
-            ✓ Extracted {status.pageCount} page{status.pageCount === 1 ? "" : "s"} → {status.filename} downloaded.
+            ✓ Extracted {status.count} page{status.count === 1 ? "" : "s"} → {status.filename} downloaded.
           </span>
         )}
         {status.kind === "error" && (
@@ -240,15 +230,9 @@ export default function PdfSplitter() {
   );
 }
 
-function statusLabel(status: Status): string {
-  switch (status.kind) {
-    case "reading":
-      return "Reading…";
-    case "loading-worker":
-      return "Loading…";
-    case "splitting":
-      return "Extracting…";
-    default:
-      return "Working…";
-  }
+function buttonLabel(status: Status): string {
+  if (status.kind === "loading" && status.label === "Reading PDF") return "Reading…";
+  if (status.kind === "loading" && status.label === "Preparing splitter") return "Loading…";
+  if (status.kind === "working") return "Extracting…";
+  return "Working…";
 }

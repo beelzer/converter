@@ -1,5 +1,7 @@
 // UTF-8 safe Base64 helpers built on TextEncoder/TextDecoder + native btoa/atob.
 
+import { BINARY_STRING_CHUNK } from "../util/defaults";
+
 export type Base64Variant = "standard" | "url-safe";
 
 export function encodeBase64Text(input: string, variant: Base64Variant = "standard"): string {
@@ -14,11 +16,10 @@ export function decodeBase64Text(input: string): string {
 
 export function bytesToBase64(bytes: Uint8Array, variant: Base64Variant = "standard"): string {
   let s = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
+  for (let i = 0; i < bytes.length; i += BINARY_STRING_CHUNK) {
     s += String.fromCharCode.apply(
       null,
-      Array.from(bytes.subarray(i, i + chunkSize))
+      Array.from(bytes.subarray(i, i + BINARY_STRING_CHUNK))
     );
   }
   let b64 = btoa(s);

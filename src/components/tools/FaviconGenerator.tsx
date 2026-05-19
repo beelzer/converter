@@ -1,6 +1,8 @@
 import { useCallback, useState } from "preact/hooks";
 import FileDropZone from "../shared/FileDropZone";
+import type { Status } from "../shared/Widgets";
 import { downloadBlob, formatSize } from "../../lib/util/file";
+import { MIME } from "../../lib/util/mime";
 import { zipEntries } from "../../lib/util/zip";
 import { generateFaviconBundle } from "../../lib/image/favicon";
 import { ACCEPT_INPUT, detectInputFormat } from "../../lib/image/formats";
@@ -8,12 +10,6 @@ import { ACCEPT_INPUT, detectInputFormat } from "../../lib/image/formats";
 interface LoadedFile {
   file: File;
 }
-
-type Status =
-  | { kind: "idle" }
-  | { kind: "generating" }
-  | { kind: "done"; filename: string; count: number }
-  | { kind: "error"; message: string };
 
 export default function FaviconGenerator() {
   const [file, setFile] = useState<LoadedFile | null>(null);
@@ -41,12 +37,12 @@ export default function FaviconGenerator() {
 
   const onGenerate = async () => {
     if (!file) return;
-    setStatus({ kind: "generating" });
+    setStatus({ kind: "working", label: "Generating bundle in your browser" });
     try {
       const result = await generateFaviconBundle(file.file, siteName);
       const zip = zipEntries(result.entries);
       const filename = "favicon-bundle.zip";
-      downloadBlob(zip, filename, "application/zip");
+      downloadBlob(zip, filename, MIME.ZIP);
       setStatus({
         kind: "done",
         filename,
@@ -58,7 +54,7 @@ export default function FaviconGenerator() {
     }
   };
 
-  const busy = status.kind === "generating";
+  const busy = status.kind === "working";
 
   return (
     <div class="w-full">
@@ -137,8 +133,8 @@ export default function FaviconGenerator() {
         aria-atomic="true"
         class="mt-4 min-h-[1.5rem] font-mono text-sm"
       >
-        {status.kind === "generating" && (
-          <span class="text-[var(--color-accent)]">Generating bundle in your browser…</span>
+        {status.kind === "working" && (
+          <span class="text-[var(--color-accent)]">{status.label}…</span>
         )}
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">

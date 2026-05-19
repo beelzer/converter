@@ -82,6 +82,4 @@ export function detectFromText(text: string): DataFormat | null {
   return null;
 }
 
-export function basenameWithoutExt(name: string): string {
-  return name.replace(/\.[a-z0-9]+$/i, "");
-}
+export { stripExt as basenameWithoutExt } from "../util/filename";

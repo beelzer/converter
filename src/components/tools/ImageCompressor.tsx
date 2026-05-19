@@ -1,6 +1,8 @@
 import { useCallback, useState } from "preact/hooks";
 import FileDropZone from "../shared/FileDropZone";
+import type { Status } from "../shared/Widgets";
 import { downloadBlob, formatSize, newId } from "../../lib/util/file";
+import { MIME } from "../../lib/util/mime";
 import { zipEntries } from "../../lib/util/zip";
 import { convertImage } from "../../lib/image/convert";
 import {
@@ -13,19 +15,6 @@ interface QueuedFile {
   id: string;
   file: File;
 }
-
-type Status =
-  | { kind: "idle" }
-  | { kind: "compressing"; done: number; total: number }
-  | { kind: "packing" }
-  | {
-      kind: "done";
-      count: number;
-      filename: string;
-      originalSize: number;
-      compressedSize: number;
-    }
-  | { kind: "error"; message: string };
 
 // For compression, we re-encode in the same family the user expects. PNG can't
 // be tuned by a quality slider, so PNG inputs default to WebP output to actually
@@ -65,7 +54,7 @@ export default function ImageCompressor() {
   const onCompress = async () => {
     if (files.length === 0) return;
     const total = files.length;
-    setStatus({ kind: "compressing", done: 0, total });
+    setStatus({ kind: "working", label: `Compressing 0 of ${total}`, p: 0 });
     const results: { name: string; bytes: Uint8Array; blob: Blob; original: number }[] = [];
     try {
       for (let i = 0; i < files.length; i++) {
@@ -87,7 +76,11 @@ export default function ImageCompressor() {
           });
           return;
         }
-        setStatus({ kind: "compressing", done: i + 1, total });
+        setStatus({
+          kind: "working",
+          label: `Compressing ${i + 1} of ${total}`,
+          p: (i + 1) / total,
+        });
       }
 
       const originalTotal = results.reduce((a, r) => a + r.original, 0);
@@ -100,23 +93,21 @@ export default function ImageCompressor() {
           kind: "done",
           count: 1,
           filename: only.name,
-          originalSize: originalTotal,
-          compressedSize: compressedTotal,
+          meta: { originalSize: originalTotal, compressedSize: compressedTotal },
         });
         return;
       }
-      setStatus({ kind: "packing" });
+      setStatus({ kind: "working", label: "Packing ZIP" });
       const zip = zipEntries(
         results.map((r) => ({ name: r.name, bytes: r.bytes }))
       );
       const zipName = `compressed.zip`;
-      downloadBlob(zip, zipName, "application/zip");
+      downloadBlob(zip, zipName, MIME.ZIP);
       setStatus({
         kind: "done",
         count: results.length,
         filename: zipName,
-        originalSize: originalTotal,
-        compressedSize: compressedTotal,
+        meta: { originalSize: originalTotal, compressedSize: compressedTotal },
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -124,7 +115,7 @@ export default function ImageCompressor() {
     }
   };
 
-  const busy = status.kind === "compressing" || status.kind === "packing";
+  const busy = status.kind === "working";
 
   return (
     <div class="w-full">
@@ -209,7 +200,7 @@ export default function ImageCompressor() {
               disabled={busy}
               class="font-mono text-sm px-5 py-2.5 rounded-md bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:bg-[var(--color-fg-dim)] disabled:cursor-not-allowed transition-colors"
             >
-              {busy ? statusLabel(status) : `Compress ${files.length}`}
+              {busy ? `${status.label ?? "Working"}…` : `Compress ${files.length}`}
             </button>
           </div>
         </div>
@@ -221,18 +212,18 @@ export default function ImageCompressor() {
         aria-atomic="true"
         class="mt-4 min-h-[1.5rem] font-mono text-sm"
       >
-        {status.kind === "compressing" && (
-          <span class="text-[var(--color-accent)]">
-            Compressing {status.done} of {status.total}…
-          </span>
-        )}
-        {status.kind === "packing" && (
+        {status.kind === "working" && status.label === "Packing ZIP" && (
           <span class="text-[var(--color-fg-muted)]">Packing ZIP…</span>
+        )}
+        {status.kind === "working" && status.label !== "Packing ZIP" && (
+          <span class="text-[var(--color-accent)]">
+            {status.label}…
+          </span>
         )}
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
-            ✓ {formatSize(status.originalSize)} → {formatSize(status.compressedSize)} ({Math.round(
-              (1 - status.compressedSize / status.originalSize) * 100
+            ✓ {formatSize((status.meta?.originalSize as number) ?? 0)} → {formatSize((status.meta?.compressedSize as number) ?? 0)} ({Math.round(
+              (1 - ((status.meta?.compressedSize as number) ?? 0) / ((status.meta?.originalSize as number) || 1)) * 100
             )}% smaller). Saved as {status.filename}.
           </span>
         )}
@@ -242,12 +233,4 @@ export default function ImageCompressor() {
       </div>
     </div>
   );
-}
-
-function statusLabel(status: Status): string {
-  if (status.kind === "compressing") {
-    return `Compressing ${status.done}/${status.total}…`;
-  }
-  if (status.kind === "packing") return "Packing…";
-  return "Working…";
 }

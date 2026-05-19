@@ -1,5 +1,7 @@
 import { useState } from "preact/hooks";
-import { downloadBlob } from "../../lib/util/file";
+import OutputPanel from "../shared/OutputPanel";
+import FilePickButton from "../shared/FilePickButton";
+import type { Status } from "../shared/Widgets";
 import { beautify } from "../../lib/code/beautify";
 import {
   BEAUTIFY_LANGUAGES,
@@ -10,12 +12,6 @@ import {
   type Language,
 } from "../../lib/code/languages";
 
-type Status =
-  | { kind: "idle" }
-  | { kind: "working" }
-  | { kind: "done"; bytes: number }
-  | { kind: "error"; message: string };
-
 export default function CodeBeautifier() {
   const [language, setLanguage] = useState<Language>("javascript");
   const [input, setInput] = useState("");
@@ -23,16 +19,12 @@ export default function CodeBeautifier() {
   const [indent, setIndent] = useState(2);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
-  const onFile = async (e: Event) => {
-    const target = e.currentTarget as HTMLInputElement;
-    const file = target.files?.[0];
-    if (!file) return;
+  const onPickFile = async (file: File) => {
     setInput(await file.text());
     setOutput("");
     setStatus({ kind: "idle" });
     const detected = detectFromFile(file);
     if (detected) setLanguage(detected);
-    target.value = "";
   };
 
   const onRun = async () => {
@@ -44,30 +36,12 @@ export default function CodeBeautifier() {
     try {
       const result = await beautify(input, language, { indent });
       setOutput(result);
-      setStatus({ kind: "done", bytes: new TextEncoder().encode(result).length });
+      setStatus({ kind: "done", size: new TextEncoder().encode(result).length });
     } catch (err) {
       setStatus({
         kind: "error",
         message: err instanceof Error ? err.message : String(err),
       });
-    }
-  };
-
-  const onDownload = () => {
-    if (!output) return;
-    downloadBlob(
-      new Blob([output], { type: LANGUAGE_MIME[language] }),
-      `formatted.${LANGUAGE_EXT[language]}`,
-      LANGUAGE_MIME[language]
-    );
-  };
-
-  const onCopy = async () => {
-    if (!output) return;
-    try {
-      await navigator.clipboard.writeText(output);
-    } catch {
-      // ignore
     }
   };
 
@@ -107,15 +81,13 @@ export default function CodeBeautifier() {
             <option value="4">4 spaces</option>
           </select>
         </label>
-        <label class="font-mono text-xs text-[var(--color-fg-dim)] hover:text-[var(--color-accent)] cursor-pointer ml-auto">
-          pick a file
-          <input
-            type="file"
-            onChange={onFile}
-            class="sr-only"
-            aria-label="Pick a source file"
+        <div class="ml-auto">
+          <FilePickButton
+            onFile={onPickFile}
+            label="pick a file"
+            ariaLabel="Pick a source file"
           />
-        </label>
+        </div>
       </div>
 
       <label
@@ -149,37 +121,20 @@ export default function CodeBeautifier() {
 
       {(output || status.kind === "error") && (
         <div class="mt-6">
-          <label class="block font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-2">
-            Formatted
-          </label>
-          <div class="rounded-md border-2 border-[var(--color-border)] bg-[var(--color-surface)]">
-            <textarea
-              value={output}
-              readOnly
-              rows={12}
-              aria-label="Formatted output"
-              class="block w-full bg-transparent p-3 font-mono text-sm text-[var(--color-fg)] focus:outline-none resize-y"
-              spellcheck={false}
-            />
-            <div class="flex items-center justify-between px-3 py-2 border-t border-[var(--color-border)] text-xs font-mono text-[var(--color-fg-dim)]">
-              <div class="flex gap-3">
-                <button type="button" onClick={onCopy} class="hover:text-[var(--color-accent)]">
-                  copy
-                </button>
-                <button type="button" onClick={onDownload} class="hover:text-[var(--color-accent)]">
-                  download
-                </button>
-              </div>
-              <span>{output.length > 0 ? `${output.length.toLocaleString()} chars` : "empty"}</span>
-            </div>
-          </div>
+          <OutputPanel
+            value={output}
+            ariaLabel="Formatted output"
+            label="Formatted"
+            filename={`formatted.${LANGUAGE_EXT[language]}`}
+            mime={LANGUAGE_MIME[language]}
+          />
         </div>
       )}
 
       <div role="status" aria-live="polite" class="mt-4 min-h-[1.5rem] font-mono text-sm">
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
-            ✓ {status.bytes.toLocaleString()} bytes
+            ✓ {(status.size ?? 0).toLocaleString()} bytes
           </span>
         )}
         {status.kind === "error" && (

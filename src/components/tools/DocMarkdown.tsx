@@ -1,6 +1,12 @@
 import { useEffect, useState } from "preact/hooks";
 import { downloadBlob } from "../../lib/util/file";
 import { markdownToHtml } from "../../lib/document/markdown";
+import {
+  buildDownloadHtml,
+  buildPreviewSrcDoc,
+  openPrintWindow,
+} from "../../lib/document/printStylesheet";
+import { MIME } from "../../lib/util/mime";
 
 const DEFAULT_MD = `# Hello, Markdown
 
@@ -50,30 +56,14 @@ export default function DocMarkdown() {
   };
 
   const downloadMd = () =>
-    downloadBlob(new Blob([md], { type: "text/markdown" }), "document.md", "text/markdown");
-  const downloadHtml = () => {
-    const wrapped = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>document</title>
-<style>body{font-family:system-ui,-apple-system,sans-serif;max-width:48rem;margin:2rem auto;padding:0 1rem;line-height:1.6;color:#222}pre{background:#f4f4f4;padding:1rem;overflow:auto;border-radius:6px}code{font-family:ui-monospace,monospace}</style>
-</head>
-<body>
-${html}
-</body>
-</html>`;
-    downloadBlob(new Blob([wrapped], { type: "text/html" }), "document.html", "text/html");
-  };
-
-  const printPdf = () => {
-    const doc = `<!doctype html><html><head><meta charset="utf-8"><title>document</title>
-<style>body{font-family:system-ui,-apple-system,sans-serif;max-width:48rem;margin:1rem auto;padding:0 1rem;line-height:1.5;color:#222}pre{background:#f4f4f4;padding:1rem;overflow:auto;border-radius:6px}code{font-family:ui-monospace,monospace}img{max-width:100%}@media print{body{margin:0}}</style>
-</head><body>${html}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),200))</script></body></html>`;
-    const url = URL.createObjectURL(new Blob([doc], { type: "text/html" }));
-    window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  };
+    downloadBlob(new Blob([md], { type: MIME.TEXT_MARKDOWN }), "document.md", MIME.TEXT_MARKDOWN);
+  const downloadHtml = () =>
+    downloadBlob(
+      new Blob([buildDownloadHtml(html)], { type: MIME.TEXT_HTML }),
+      "document.html",
+      MIME.TEXT_HTML
+    );
+  const printPdf = () => openPrintWindow(html);
 
   return (
     <div class="w-full">
@@ -113,7 +103,7 @@ ${html}
             Preview
           </label>
           <iframe
-            srcdoc={`<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:system-ui,-apple-system,sans-serif;color:#222;line-height:1.6;padding:0.75rem;margin:0}pre{background:#f4f4f4;padding:0.75rem;overflow:auto;border-radius:6px}code{font-family:ui-monospace,monospace}img{max-width:100%}</style></head><body>${html}</body></html>`}
+            srcdoc={buildPreviewSrcDoc(html)}
             sandbox=""
             title="Markdown preview"
             class="block w-full h-[28rem] rounded-md border-2 border-[var(--color-border)] bg-white"

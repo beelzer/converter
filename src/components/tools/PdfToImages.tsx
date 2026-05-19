@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
 import FileDropZone from "../shared/FileDropZone";
+import type { Status } from "../shared/Widgets";
 import { downloadBlob, formatSize } from "../../lib/util/file";
+import { stripExt } from "../../lib/util/filename";
+import { MIME } from "../../lib/util/mime";
 import { readPageCount } from "../../lib/pdf/split";
 import { pdfToImages, type OutputFormat } from "../../lib/pdf/pdfToImages";
 import { zipEntries } from "../../lib/util/zip";
@@ -12,23 +15,11 @@ interface LoadedFile {
   buffer: ArrayBuffer;
 }
 
-type Status =
-  | { kind: "idle" }
-  | { kind: "reading" }
-  | { kind: "rendering"; done: number; total: number }
-  | { kind: "packing" }
-  | { kind: "done"; pageCount: number; filename: string }
-  | { kind: "error"; message: string };
-
 const QUALITY_PRESETS: { label: string; dpi: number; scale: number }[] = [
   { label: "Screen (96 dpi)", dpi: 96, scale: 96 / 72 },
   { label: "Print (200 dpi)", dpi: 200, scale: 200 / 72 },
   { label: "High (300 dpi)", dpi: 300, scale: 300 / 72 },
 ];
-
-function basenameWithoutExt(name: string): string {
-  return name.replace(/\.pdf$/i, "");
-}
 
 export default function PdfToImages() {
   const [file, setFile] = useState<LoadedFile | null>(null);
@@ -55,7 +46,7 @@ export default function PdfToImages() {
       });
       return;
     }
-    setStatus({ kind: "reading" });
+    setStatus({ kind: "loading", label: "Reading PDF" });
     try {
       const buffer = await first.arrayBuffer();
       const pageCount = await readPageCount(buffer);
@@ -84,7 +75,7 @@ export default function PdfToImages() {
 
   const onConvert = async () => {
     if (!file) return;
-    setStatus({ kind: "rendering", done: 0, total: file.pageCount });
+    setStatus({ kind: "working", label: `Rendering 0 of ${file.pageCount}`, p: 0 });
     try {
       const result = await pdfToImages(file.buffer, file.name, {
         format,
@@ -92,7 +83,7 @@ export default function PdfToImages() {
         quality: 0.92,
         pages,
         onProgress: (done, total) => {
-          setStatus({ kind: "rendering", done, total });
+          setStatus({ kind: "working", label: `Rendering ${done} of ${total}`, p: done / total });
         },
       });
 
@@ -110,22 +101,22 @@ export default function PdfToImages() {
         );
         setStatus({
           kind: "done",
-          pageCount: 1,
+          count: 1,
           filename: only.name,
         });
         return;
       }
 
-      setStatus({ kind: "packing" });
+      setStatus({ kind: "working", label: "Packing ZIP" });
       const zip = zipEntries(
         result.pages.map((p) => ({ name: p.name, bytes: p.bytes }))
       );
-      const base = basenameWithoutExt(file.name) || "document";
+      const base = stripExt(file.name) || "document";
       const zipName = `${base}-${format === "jpeg" ? "jpg" : "png"}.zip`;
-      downloadBlob(zip, zipName, "application/zip");
+      downloadBlob(zip, zipName, MIME.ZIP);
       setStatus({
         kind: "done",
-        pageCount: result.pages.length,
+        count: result.pages.length,
         filename: zipName,
       });
     } catch (err) {
@@ -135,9 +126,8 @@ export default function PdfToImages() {
   };
 
   const busy =
-    status.kind === "reading" ||
-    status.kind === "rendering" ||
-    status.kind === "packing";
+    status.kind === "loading" ||
+    status.kind === "working";
 
   return (
     <div class="w-full">
@@ -253,7 +243,7 @@ export default function PdfToImages() {
               disabled={busy}
               class="font-mono text-sm px-5 py-2.5 rounded-md bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:bg-[var(--color-fg-dim)] disabled:cursor-not-allowed transition-colors"
             >
-              {busy ? statusLabel(status) : "Convert & download"}
+              {busy ? buttonLabel(status) : "Convert & download"}
             </button>
           </div>
         </div>
@@ -265,20 +255,18 @@ export default function PdfToImages() {
         aria-atomic="true"
         class="mt-4 min-h-[1.5rem] font-mono text-sm"
       >
-        {status.kind === "reading" && (
-          <span class="text-[var(--color-fg-muted)]">Reading PDF…</span>
+        {status.kind === "loading" && (
+          <span class="text-[var(--color-fg-muted)]">{status.label}…</span>
         )}
-        {status.kind === "rendering" && (
-          <span class="text-[var(--color-accent)]">
-            Rendering page {status.done} of {status.total}…
-          </span>
-        )}
-        {status.kind === "packing" && (
+        {status.kind === "working" && status.label === "Packing ZIP" && (
           <span class="text-[var(--color-fg-muted)]">Packing ZIP…</span>
+        )}
+        {status.kind === "working" && status.label !== "Packing ZIP" && (
+          <span class="text-[var(--color-accent)]">{status.label}…</span>
         )}
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
-            ✓ Converted {status.pageCount} page{status.pageCount === 1 ? "" : "s"} → {status.filename} downloaded.
+            ✓ Converted {status.count} page{status.count === 1 ? "" : "s"} → {status.filename} downloaded.
           </span>
         )}
         {status.kind === "error" && (
@@ -289,15 +277,9 @@ export default function PdfToImages() {
   );
 }
 
-function statusLabel(status: Status): string {
-  switch (status.kind) {
-    case "reading":
-      return "Reading…";
-    case "rendering":
-      return `Rendering ${status.done}/${status.total}…`;
-    case "packing":
-      return "Packing…";
-    default:
-      return "Working…";
-  }
+function buttonLabel(status: Status): string {
+  if (status.kind === "loading") return "Reading…";
+  if (status.kind === "working" && status.label === "Packing ZIP") return "Packing…";
+  if (status.kind === "working") return status.label ? `${status.label}…` : "Working…";
+  return "Working…";
 }

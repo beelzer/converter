@@ -1,173 +1,84 @@
 ---
-import ToolLayout from "../components/ToolLayout.astro";
+import HubPageLayout from "../components/HubPageLayout.astro";
 import PdfHub from "../components/tools/PdfHub.tsx";
 
 const title = "PDF tools — merge, split, rotate, convert in your browser | tools.dcln.me";
 const description =
   "All-in-one PDF toolkit that runs entirely in your browser. Merge, split, rotate, reorganize pages, build PDFs from images, and convert PDFs to JPG or PNG. Your files are never uploaded.";
 
-const howToSchema = {
-  "@context": "https://schema.org",
-  "@type": "HowTo",
-  name: "How to edit PDFs in your browser",
-  description:
-    "Use the PDF toolkit to merge, split, rotate, reorganize, or convert PDFs — all locally, without uploading anything.",
-  step: [
-    {
-      "@type": "HowToStep",
-      position: 1,
-      name: "Pick what you want to do",
-      text: "Choose a mode from the tab bar: merge, split, rotate, organize, images to PDF, or PDF to images.",
-    },
-    {
-      "@type": "HowToStep",
-      position: 2,
-      name: "Add your files",
-      text: "Drag and drop files into the drop zone, or click to pick. The exact input depends on the mode.",
-    },
-    {
-      "@type": "HowToStep",
-      position: 3,
-      name: "Run and download",
-      text: "Configure any options, click the action button, and download the result. Everything happens on your device.",
-    },
-  ],
-};
+const lead =
+  "Merge, split, rotate, reorganize, or convert PDFs in your browser. Every operation runs on your device — your files are never uploaded.";
 
-const faqSchema = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: [
-    {
-      "@type": "Question",
-      name: "Is this really private? Do my PDFs get uploaded?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "No. Every operation runs in your browser using WebAssembly-based PDF libraries (pdf-lib for writes, pdf.js for renders). Your PDFs are loaded into memory on your device, processed locally, and the results are offered for download. You can verify this by opening your browser's network tab — you will see no requests fired during the work.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "What can this toolkit do?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Six operations: merge multiple PDFs into one; split a PDF by extracting pages or ranges; rotate pages 90/180/270°; reorganize a PDF by dragging or deleting pages with thumbnail previews; build a PDF from JPG, PNG, WebP, GIF or BMP images; and convert a PDF into JPG or PNG images (one per page, packed as a ZIP if multiple).",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "What's the file size limit?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "There is no server-side limit because there is no server. The practical limit is your browser's available memory — typically a few hundred megabytes on desktop and somewhat less on mobile. Very large PDFs may slow down or, on memory-constrained devices, fail.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Does it work offline?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Yes, after the page has loaded once. All the libraries needed are served from this site, so once cached, you can disconnect from the internet and keep working.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Does this support password-protected PDFs?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Not yet. Encrypted PDFs need the password to be unlocked first. You can unlock them in your PDF reader and re-save without a password, then use the toolkit.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Why is it free?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Because we don't pay for servers to do the work — your device does it. The site is static HTML and CSS served from a CDN, with the work running entirely in your browser. There are no accounts, ads, or premium tiers. The source is on GitHub under the MIT license.",
-      },
-    },
-  ],
-};
+const howToSteps = [
+  {
+    name: "Pick what you want to do",
+    text: "Choose a mode from the tab bar: merge, split, rotate, organize, images to PDF, or PDF to images.",
+  },
+  {
+    name: "Add your files",
+    text: "Drag and drop files into the drop zone, or click to pick. The exact input depends on the mode.",
+  },
+  {
+    name: "Run and download",
+    text: "Configure any options, click the action button, and download the result. Everything happens on your device.",
+  },
+];
 
-const breadcrumbSchema = {
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  itemListElement: [
-    {
-      "@type": "ListItem",
-      position: 1,
-      name: "Tools",
-      item: "https://tools.dcln.me/",
-    },
-    {
-      "@type": "ListItem",
-      position: 2,
-      name: "PDF",
-      item: "https://tools.dcln.me/pdf",
-    },
-  ],
-};
+const howToBlocks = [
+  {
+    title: "Pick a mode.",
+    body: "The tab bar at the top of the toolkit lists the six operations. Each one has its own controls.",
+  },
+  {
+    title: "Add your files.",
+    body: "Drag and drop into the box, or click to pick. Some modes take one file, others take many.",
+  },
+  {
+    title: "Run & download.",
+    body: "The work runs in a background thread in your browser. When it’s done, the result is offered for download.",
+  },
+];
+
+const faq = [
+  {
+    q: "Is this really private? Do my PDFs get uploaded?",
+    a: "No. Every operation runs in your browser using WebAssembly-based PDF libraries (pdf-lib for writes, pdf.js for renders). Your PDFs are loaded into memory on your device, processed locally, and the results are offered for download. You can verify this by opening your browser's network tab — you will see no requests fired during the work.",
+  },
+  {
+    q: "What can this toolkit do?",
+    a: "Six operations: merge multiple PDFs into one; split a PDF by extracting pages or ranges; rotate pages 90/180/270°; reorganize a PDF by dragging or deleting pages with thumbnail previews; build a PDF from JPG, PNG, WebP, GIF or BMP images; and convert a PDF into JPG or PNG images (one per page, packed as a ZIP if multiple).",
+  },
+  {
+    q: "What's the file size limit?",
+    a: "There is no server-side limit because there is no server. The practical limit is your browser's available memory — typically a few hundred megabytes on desktop and somewhat less on mobile. Very large PDFs may slow down or, on memory-constrained devices, fail.",
+  },
+  {
+    q: "Does it work offline?",
+    a: "Yes, after the page has loaded once. All the libraries needed are served from this site, so once cached, you can disconnect from the internet and keep working.",
+  },
+  {
+    q: "Does this support password-protected PDFs?",
+    a: "Not yet. Encrypted PDFs need the password to be unlocked first. You can unlock them in your PDF reader and re-save without a password, then use the toolkit.",
+  },
+  {
+    q: "Why is it free?",
+    a: "Because we don't pay for servers to do the work — your device does it. The site is static HTML and CSS served from a CDN, with the work running entirely in your browser. There are no accounts, ads, or premium tiers. The source is on GitHub under the MIT license.",
+  },
+];
 ---
 
-<ToolLayout title={title} description={description} schema={[howToSchema, faqSchema, breadcrumbSchema]}>
-  <section class="mx-auto max-w-4xl px-6 pt-12 sm:pt-16">
-    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-3 uppercase tracking-widest">
-      <a href="/" class="hover:text-[var(--color-fg)]">tools</a>
-      <span class="mx-2">/</span>
-      <span>pdf</span>
-    </p>
-    <h1 class="font-mono text-3xl sm:text-4xl font-semibold leading-tight">
-      PDF tools.
-    </h1>
-    <p class="mt-4 text-lg text-[var(--color-fg-muted)] leading-relaxed">
-      Merge, split, rotate, reorganize, or convert PDFs in your browser. Every operation runs on your device — your files are never uploaded.
-    </p>
-  </section>
-
-  <section class="mx-auto max-w-4xl px-6 mt-10" aria-label="PDF toolkit">
-    <PdfHub client:load />
-  </section>
-
-  <section class="mx-auto max-w-4xl px-6 mt-16" aria-labelledby="how-heading">
-    <h2 id="how-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
-      How it works
-    </h2>
-    <ol class="space-y-4 text-[var(--color-fg-muted)]">
-      <li class="flex gap-4">
-        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">01</span>
-        <span>
-          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Pick a mode.</strong>
-          The tab bar at the top of the toolkit lists the six operations. Each one has its own controls.
-        </span>
-      </li>
-      <li class="flex gap-4">
-        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">02</span>
-        <span>
-          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Add your files.</strong>
-          Drag and drop into the box, or click to pick. Some modes take one file, others take many.
-        </span>
-      </li>
-      <li class="flex gap-4">
-        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">03</span>
-        <span>
-          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">Run &amp; download.</strong>
-          The work runs in a background thread in your browser. When it&rsquo;s done, the result is offered for download.
-        </span>
-      </li>
-    </ol>
-  </section>
-
-  <section class="mx-auto max-w-4xl px-6 mt-16 mb-12" aria-labelledby="faq-heading">
-    <h2 id="faq-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
-      FAQ
-    </h2>
-    <dl class="space-y-6">
-      {faqSchema.mainEntity.map((qa) => (
-        <div>
-          <dt class="font-mono text-base text-[var(--color-fg)] mb-2">{qa.name}</dt>
-          <dd class="text-[var(--color-fg-muted)] leading-relaxed">{qa.acceptedAnswer.text}</dd>
-        </div>
-      ))}
-    </dl>
-  </section>
-</ToolLayout>
+<HubPageLayout
+  title={title}
+  description={description}
+  slug="pdf"
+  label="PDF"
+  hubHeading="PDF tools."
+  lead={lead}
+  howToName="How to edit PDFs in your browser"
+  howToDescription="Use the PDF toolkit to merge, split, rotate, reorganize, or convert PDFs — all locally, without uploading anything."
+  howToSteps={howToSteps}
+  howToBlocks={howToBlocks}
+  faq={faq}
+>
+  <PdfHub client:load />
+</HubPageLayout>

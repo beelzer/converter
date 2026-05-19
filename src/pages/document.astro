@@ -1,132 +1,67 @@
 ---
-import ToolLayout from "../components/ToolLayout.astro";
+import HubPageLayout from "../components/HubPageLayout.astro";
 import DocumentHub from "../components/tools/DocumentHub.tsx";
 
 const title = "Document tools — Markdown / HTML / DOCX / PDF | tools.dcln.me";
 const description =
   "Convert documents in your browser. Markdown ↔ HTML, DOCX → HTML/Markdown/text via mammoth, PDF → text via pdf.js, print to PDF via the browser. No upload, no server.";
 
-const howToSchema = {
-  "@context": "https://schema.org",
-  "@type": "HowTo",
-  name: "How to convert documents in your browser",
-  step: [
-    {
-      "@type": "HowToStep",
-      position: 1,
-      name: "Pick a source format",
-      text: "Choose a tab matching what you have: Markdown, HTML, DOCX, or PDF.",
-    },
-    {
-      "@type": "HowToStep",
-      position: 2,
-      name: "Drop or paste your content",
-      text: "Drag and drop a file, or type/paste directly. Conversions run locally.",
-    },
-    {
-      "@type": "HowToStep",
-      position: 3,
-      name: "Download or print",
-      text: "Each mode exposes the relevant outputs. Use the Print → Save as PDF button to hand off to your browser's PDF engine — best quality without a 1 MB+ JS PDF library.",
-    },
-  ],
-};
+const lead =
+  "Markdown, HTML, DOCX and PDF text — all converted locally in your browser. No upload, no server. Open and honest about what each conversion can and can't preserve.";
 
-const faqSchema = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: [
-    {
-      "@type": "Question",
-      name: "Why isn't there a Markdown → DOCX option?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "All the in-browser DOCX writers we evaluated were either large, unmaintained, or both. We'd rather omit the feature than ship something brittle. If you need DOCX out, generate HTML here and paste it into Word — Word handles HTML import well, including styles and tables.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "How accurate is DOCX → HTML?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Mammoth produces clean, semantic HTML — headings, lists, paragraphs, tables, basic styling — but discards exact layout (page margins, header/footer placement, custom fonts). The output renders well in browsers and pastes well into other editors. For pixel-perfect fidelity, use the original DOCX.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Will my document be uploaded anywhere?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "No. Mammoth (DOCX), marked (Markdown), turndown (HTML→MD) and pdf.js all run in your browser. Open the network tab while you convert — there's no upload.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Why does PDF → text return nothing for my scanned PDF?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Image-only PDFs (typical scans) have no text layer to extract — there are only pictures of text. You'd need OCR for those. We may add OCR to /pdf later via tesseract.js, but it's a 10–15 MB engine + per-language model so it's deliberately not in this fast text-extractor.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Print to PDF looks plain — can I style it?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "The Print to PDF flow opens a new tab with a minimal stylesheet and triggers your browser's print dialog. From there you get full control: pick paper size, margins, headers/footers, and 'Save as PDF' as the destination. For custom CSS, copy the HTML output and add your own stylesheet before printing.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Are .doc (old format) files supported?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "No — only modern .docx (Office Open XML). The pre-2007 binary .doc format requires a totally different parser; the best browser-side library for it (catdoc / antiword ports) is unmaintained. Open the file in Word/LibreOffice and Save As .docx first.",
-      },
-    },
-  ],
-};
+const howToSteps = [
+  {
+    name: "Pick a source format",
+    text: "Choose a tab matching what you have: Markdown, HTML, DOCX, or PDF.",
+  },
+  {
+    name: "Drop or paste your content",
+    text: "Drag and drop a file, or type/paste directly. Conversions run locally.",
+  },
+  {
+    name: "Download or print",
+    text: "Each mode exposes the relevant outputs. Use the Print → Save as PDF button to hand off to your browser's PDF engine — best quality without a 1 MB+ JS PDF library.",
+  },
+];
 
-const breadcrumbSchema = {
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  itemListElement: [
-    { "@type": "ListItem", position: 1, name: "Tools", item: "https://tools.dcln.me/" },
-    { "@type": "ListItem", position: 2, name: "Document", item: "https://tools.dcln.me/document" },
-  ],
-};
+const faq = [
+  {
+    q: "Why isn't there a Markdown → DOCX option?",
+    a: "All the in-browser DOCX writers we evaluated were either large, unmaintained, or both. We'd rather omit the feature than ship something brittle. If you need DOCX out, generate HTML here and paste it into Word — Word handles HTML import well, including styles and tables.",
+  },
+  {
+    q: "How accurate is DOCX → HTML?",
+    a: "Mammoth produces clean, semantic HTML — headings, lists, paragraphs, tables, basic styling — but discards exact layout (page margins, header/footer placement, custom fonts). The output renders well in browsers and pastes well into other editors. For pixel-perfect fidelity, use the original DOCX.",
+  },
+  {
+    q: "Will my document be uploaded anywhere?",
+    a: "No. Mammoth (DOCX), marked (Markdown), turndown (HTML→MD) and pdf.js all run in your browser. Open the network tab while you convert — there's no upload.",
+  },
+  {
+    q: "Why does PDF → text return nothing for my scanned PDF?",
+    a: "Image-only PDFs (typical scans) have no text layer to extract — there are only pictures of text. You'd need OCR for those. We may add OCR to /pdf later via tesseract.js, but it's a 10–15 MB engine + per-language model so it's deliberately not in this fast text-extractor.",
+  },
+  {
+    q: "Print to PDF looks plain — can I style it?",
+    a: "The Print to PDF flow opens a new tab with a minimal stylesheet and triggers your browser's print dialog. From there you get full control: pick paper size, margins, headers/footers, and 'Save as PDF' as the destination. For custom CSS, copy the HTML output and add your own stylesheet before printing.",
+  },
+  {
+    q: "Are .doc (old format) files supported?",
+    a: "No — only modern .docx (Office Open XML). The pre-2007 binary .doc format requires a totally different parser; the best browser-side library for it (catdoc / antiword ports) is unmaintained. Open the file in Word/LibreOffice and Save As .docx first.",
+  },
+];
 ---
 
-<ToolLayout title={title} description={description} schema={[howToSchema, faqSchema, breadcrumbSchema]}>
-  <section class="mx-auto max-w-5xl px-6 pt-12 sm:pt-16">
-    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-3 uppercase tracking-widest">
-      <a href="/" class="hover:text-[var(--color-fg)]">tools</a>
-      <span class="mx-2">/</span>
-      <span>document</span>
-    </p>
-    <h1 class="font-mono text-3xl sm:text-4xl font-semibold leading-tight">
-      Document tools.
-    </h1>
-    <p class="mt-4 text-lg text-[var(--color-fg-muted)] leading-relaxed">
-      Markdown, HTML, DOCX and PDF text — all converted locally in your browser. No upload, no server. Open and honest about what each conversion can and can't preserve.
-    </p>
-  </section>
-
-  <section class="mx-auto max-w-5xl px-6 mt-10" aria-label="Document toolkit">
-    <DocumentHub client:load />
-  </section>
-
-  <section class="mx-auto max-w-5xl px-6 mt-16 mb-12" aria-labelledby="faq-heading">
-    <h2 id="faq-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
-      FAQ
-    </h2>
-    <dl class="space-y-6">
-      {faqSchema.mainEntity.map((qa) => (
-        <div>
-          <dt class="font-mono text-base text-[var(--color-fg)] mb-2">{qa.name}</dt>
-          <dd class="text-[var(--color-fg-muted)] leading-relaxed">{qa.acceptedAnswer.text}</dd>
-        </div>
-      ))}
-    </dl>
-  </section>
-</ToolLayout>
+<HubPageLayout
+  title={title}
+  description={description}
+  slug="document"
+  label="Document"
+  hubHeading="Document tools."
+  lead={lead}
+  howToName="How to convert documents in your browser"
+  howToSteps={howToSteps}
+  faq={faq}
+>
+  <DocumentHub client:load />
+</HubPageLayout>

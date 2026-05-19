@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import FileDropZone from "../shared/FileDropZone";
+import type { Status } from "../shared/Widgets";
 import { downloadBlob, formatSize, newId } from "../../lib/util/file";
+import { stripExt } from "../../lib/util/filename";
+import { MIME } from "../../lib/util/mime";
 import { readPageCount } from "../../lib/pdf/split";
 import { openThumbnailRenderer, type ThumbnailRenderer } from "../../lib/pdf/renderThumbnail";
 import type { SplitRequest, SplitResponse } from "../../lib/pdf/split.worker";
@@ -18,17 +21,6 @@ interface PageItem {
   thumb: string | null;
 }
 
-type Status =
-  | { kind: "idle" }
-  | { kind: "reading" }
-  | { kind: "loading-worker" }
-  | { kind: "saving" }
-  | { kind: "done"; pageCount: number; filename: string }
-  | { kind: "error"; message: string };
-
-function basenameWithoutExt(name: string): string {
-  return name.replace(/\.pdf$/i, "");
-}
 
 export default function PdfOrganizer() {
   const [file, setFile] = useState<LoadedFile | null>(null);
@@ -49,7 +41,7 @@ export default function PdfOrganizer() {
 
   const ensureWorker = useCallback(async (): Promise<Worker> => {
     if (workerRef.current) return workerRef.current;
-    setStatus({ kind: "loading-worker" });
+    setStatus({ kind: "loading", label: "Preparing" });
     const worker = new Worker(
       new URL("../../lib/pdf/split.worker.ts", import.meta.url),
       { type: "module" }
@@ -110,7 +102,7 @@ export default function PdfOrganizer() {
         });
         return;
       }
-      setStatus({ kind: "reading" });
+      setStatus({ kind: "loading", label: "Reading PDF" });
       try {
         const buffer = await first.arrayBuffer();
         const pageCount = await readPageCount(buffer);
@@ -217,7 +209,7 @@ export default function PdfOrganizer() {
         worker.addEventListener("message", handler);
       });
 
-      setStatus({ kind: "saving" });
+      setStatus({ kind: "working", label: "Saving in your browser" });
       const buffer = file.buffer.slice(0);
       const req: SplitRequest = {
         id,
@@ -232,12 +224,12 @@ export default function PdfOrganizer() {
         setStatus({ kind: "error", message: result.error });
         return;
       }
-      const base = basenameWithoutExt(file.name) || "document";
+      const base = stripExt(file.name) || "document";
       const filename = `${base}-organized.pdf`;
-      downloadBlob(result.bytes, filename, "application/pdf");
+      downloadBlob(result.bytes, filename, MIME.PDF);
       setStatus({
         kind: "done",
-        pageCount: result.pageCount,
+        count: result.pageCount,
         filename,
       });
     } catch (err) {
@@ -266,9 +258,8 @@ export default function PdfOrganizer() {
   const onCardDragEnd = () => setDragId(null);
 
   const busy =
-    status.kind === "reading" ||
-    status.kind === "loading-worker" ||
-    status.kind === "saving";
+    status.kind === "loading" ||
+    status.kind === "working";
 
   const hasChanges =
     file !== null &&
@@ -412,18 +403,15 @@ export default function PdfOrganizer() {
         aria-atomic="true"
         class="mt-4 min-h-[1.5rem] font-mono text-sm"
       >
-        {status.kind === "reading" && (
-          <span class="text-[var(--color-fg-muted)]">Reading PDF…</span>
+        {status.kind === "loading" && (
+          <span class="text-[var(--color-fg-muted)]">{status.label}…</span>
         )}
-        {status.kind === "loading-worker" && (
-          <span class="text-[var(--color-fg-muted)]">Preparing…</span>
-        )}
-        {status.kind === "saving" && (
-          <span class="text-[var(--color-accent)]">Saving in your browser…</span>
+        {status.kind === "working" && (
+          <span class="text-[var(--color-accent)]">{status.label}…</span>
         )}
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
-            ✓ Saved {status.pageCount} page{status.pageCount === 1 ? "" : "s"} → {status.filename} downloaded.
+            ✓ Saved {status.count} page{status.count === 1 ? "" : "s"} → {status.filename} downloaded.
           </span>
         )}
         {status.kind === "error" && (
@@ -435,14 +423,8 @@ export default function PdfOrganizer() {
 }
 
 function statusLabel(status: Status): string {
-  switch (status.kind) {
-    case "reading":
-      return "Reading…";
-    case "loading-worker":
-      return "Loading…";
-    case "saving":
-      return "Saving…";
-    default:
-      return "Working…";
-  }
+  if (status.kind === "loading" && status.label === "Reading PDF") return "Reading…";
+  if (status.kind === "loading" && status.label === "Preparing") return "Loading…";
+  if (status.kind === "working") return "Saving…";
+  return "Working…";
 }

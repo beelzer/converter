@@ -74,9 +74,7 @@ export function mimeFor(format: SupportedOutputFormat): string {
   return `image/${format}`;
 }
 
-export function basenameWithoutExt(name: string): string {
-  return name.replace(/\.[a-z0-9]+$/i, "");
-}
+export { stripExt as basenameWithoutExt } from "../util/filename";
 
 // Formats that need a JS/WASM decoder (browser cannot natively render them via
 // createImageBitmap on all platforms in 2026).

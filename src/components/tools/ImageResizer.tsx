@@ -1,5 +1,6 @@
 import { useCallback, useState } from "preact/hooks";
 import FileDropZone from "../shared/FileDropZone";
+import type { Status } from "../shared/Widgets";
 import { downloadBlob, formatSize } from "../../lib/util/file";
 import { resizeImage } from "../../lib/image/resize";
 import { ACCEPT_INPUT, detectInputFormat } from "../../lib/image/formats";
@@ -7,12 +8,6 @@ import { ACCEPT_INPUT, detectInputFormat } from "../../lib/image/formats";
 interface LoadedFile {
   file: File;
 }
-
-type Status =
-  | { kind: "idle" }
-  | { kind: "resizing" }
-  | { kind: "done"; filename: string; width: number; height: number }
-  | { kind: "error"; message: string };
 
 export default function ImageResizer() {
   const [file, setFile] = useState<LoadedFile | null>(null);
@@ -49,7 +44,7 @@ export default function ImageResizer() {
       });
       return;
     }
-    setStatus({ kind: "resizing" });
+    setStatus({ kind: "working", label: "Resizing in your browser" });
     try {
       const r = await resizeImage(file.file, {
         maxWidth,
@@ -60,8 +55,7 @@ export default function ImageResizer() {
       setStatus({
         kind: "done",
         filename: r.name,
-        width: r.width,
-        height: r.height,
+        meta: { width: r.width, height: r.height },
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -69,7 +63,7 @@ export default function ImageResizer() {
     }
   };
 
-  const busy = status.kind === "resizing";
+  const busy = status.kind === "working";
 
   return (
     <div class="w-full">
@@ -181,12 +175,12 @@ export default function ImageResizer() {
         aria-atomic="true"
         class="mt-4 min-h-[1.5rem] font-mono text-sm"
       >
-        {status.kind === "resizing" && (
-          <span class="text-[var(--color-accent)]">Resizing in your browser…</span>
+        {status.kind === "working" && (
+          <span class="text-[var(--color-accent)]">{status.label}…</span>
         )}
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
-            ✓ Resized to {status.width}×{status.height} → {status.filename} downloaded.
+            ✓ Resized to {(status.meta?.width as number) ?? 0}×{(status.meta?.height as number) ?? 0} → {status.filename} downloaded.
           </span>
         )}
         {status.kind === "error" && (

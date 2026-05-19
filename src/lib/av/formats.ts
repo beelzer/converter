@@ -99,9 +99,7 @@ export const ACCEPT_AUDIO =
 
 export const ACCEPT_MEDIA = `${ACCEPT_VIDEO},${ACCEPT_AUDIO}`;
 
-export function basenameWithoutExt(name: string): string {
-  return name.replace(/\.[a-z0-9]+$/i, "");
-}
+export { stripExt as basenameWithoutExt } from "../util/filename";
 
 export function formatDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";

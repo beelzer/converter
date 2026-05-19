@@ -1,6 +1,8 @@
 import { useEffect, useState } from "preact/hooks";
+import OutputPanel from "../shared/OutputPanel";
+import FilePickButton from "../shared/FilePickButton";
+import { MIME } from "../../lib/util/mime";
 import { bytesToBase64, decodeBase64Text, encodeBase64Text, type Base64Variant } from "../../lib/encode/base64";
-import { downloadBlob } from "../../lib/util/file";
 
 type Direction = "encode" | "decode";
 
@@ -26,34 +28,12 @@ export default function EncodeBase64() {
     }
   }, [input, direction, variant]);
 
-  const onFile = async (e: Event) => {
-    const target = e.currentTarget as HTMLInputElement;
-    const file = target.files?.[0];
-    if (!file) return;
+  const onPickFile = async (file: File) => {
     setError(null);
     const buf = new Uint8Array(await file.arrayBuffer());
     setDirection("encode");
     setInput("");
     setOutput(bytesToBase64(buf, variant));
-    target.value = "";
-  };
-
-  const onDownload = () => {
-    if (!output) return;
-    downloadBlob(
-      new Blob([output], { type: "text/plain" }),
-      `base64.txt`,
-      "text/plain"
-    );
-  };
-
-  const copy = async () => {
-    if (!output) return;
-    try {
-      await navigator.clipboard.writeText(output);
-    } catch {
-      // ignore
-    }
   };
 
   return (
@@ -111,50 +91,25 @@ export default function EncodeBase64() {
       {direction === "encode" && (
         <p class="mt-2 font-mono text-xs text-[var(--color-fg-dim)]">
           Or{" "}
-          <label class="text-[var(--color-accent)] hover:underline cursor-pointer">
-            pick a file
-            <input type="file" onChange={onFile} class="sr-only" aria-label="Pick a file to base64-encode" />
-          </label>
+          <FilePickButton
+            onFile={onPickFile}
+            label="pick a file"
+            ariaLabel="Pick a file to base64-encode"
+          />
           {" "}to encode its bytes.
         </p>
       )}
 
       {(output || error) && (
         <div class="mt-6">
-          <label class="block font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-2">
-            {direction === "encode" ? "Base64" : "Plaintext"}
-          </label>
-          <div class="rounded-md border-2 border-[var(--color-border)] bg-[var(--color-surface)]">
-            <textarea
-              value={output}
-              readOnly
-              rows={6}
-              aria-label="Output"
-              class="block w-full bg-transparent p-3 font-mono text-sm text-[var(--color-fg)] focus:outline-none resize-y"
-              spellcheck={false}
-            />
-            <div class="flex items-center justify-between px-3 py-2 border-t border-[var(--color-border)] text-xs font-mono text-[var(--color-fg-dim)]">
-              <div class="flex gap-3">
-                <button
-                  type="button"
-                  onClick={copy}
-                  disabled={!output}
-                  class="hover:text-[var(--color-accent)] disabled:opacity-50"
-                >
-                  copy
-                </button>
-                <button
-                  type="button"
-                  onClick={onDownload}
-                  disabled={!output}
-                  class="hover:text-[var(--color-accent)] disabled:opacity-50"
-                >
-                  download
-                </button>
-              </div>
-              <span>{output.length > 0 ? `${output.length.toLocaleString()} chars` : "empty"}</span>
-            </div>
-          </div>
+          <OutputPanel
+            value={output}
+            ariaLabel="Output"
+            label={direction === "encode" ? "Base64" : "Plaintext"}
+            rows={6}
+            filename="base64.txt"
+            mime={MIME.TEXT_PLAIN}
+          />
         </div>
       )}
 

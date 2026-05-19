@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import OutputPanel from "../shared/OutputPanel";
 import { urlDecode, urlEncode } from "../../lib/encode/url";
 
 type Direction = "encode" | "decode";
@@ -20,15 +21,6 @@ export default function EncodeUrl() {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [input, direction, full]);
-
-  const copy = async () => {
-    if (!output) return;
-    try {
-      await navigator.clipboard.writeText(output);
-    } catch {
-      // ignore
-    }
-  };
 
   return (
     <div class="w-full">
@@ -79,30 +71,12 @@ export default function EncodeUrl() {
 
       {(output || error) && (
         <div class="mt-6">
-          <label class="block font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-2">
-            {direction === "encode" ? "Encoded" : "Decoded"}
-          </label>
-          <div class="rounded-md border-2 border-[var(--color-border)] bg-[var(--color-surface)]">
-            <textarea
-              value={output}
-              readOnly
-              rows={5}
-              aria-label="Output"
-              class="block w-full bg-transparent p-3 font-mono text-sm text-[var(--color-fg)] focus:outline-none resize-y"
-              spellcheck={false}
-            />
-            <div class="flex items-center justify-between px-3 py-2 border-t border-[var(--color-border)] text-xs font-mono text-[var(--color-fg-dim)]">
-              <button
-                type="button"
-                onClick={copy}
-                disabled={!output}
-                class="hover:text-[var(--color-accent)] disabled:opacity-50"
-              >
-                copy
-              </button>
-              <span>{output.length > 0 ? `${output.length.toLocaleString()} chars` : "empty"}</span>
-            </div>
-          </div>
+          <OutputPanel
+            value={output}
+            ariaLabel="Output"
+            label={direction === "encode" ? "Encoded" : "Decoded"}
+            rows={5}
+          />
         </div>
       )}
 

@@ -5,6 +5,7 @@
 // re-encoding the image data.
 
 import type piexifType from "piexifjs";
+import { BINARY_STRING_CHUNK } from "../util/defaults";
 
 let piexifPromise: Promise<typeof piexifType> | null = null;
 
@@ -23,9 +24,8 @@ async function blobToBinaryString(blob: Blob): Promise<string> {
   const bytes = new Uint8Array(buffer);
   let s = "";
   // Build via chunks to avoid call-stack overflow on huge files.
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    const slice = bytes.subarray(i, Math.min(i + chunk, bytes.length));
+  for (let i = 0; i < bytes.length; i += BINARY_STRING_CHUNK) {
+    const slice = bytes.subarray(i, Math.min(i + BINARY_STRING_CHUNK, bytes.length));
     s += String.fromCharCode.apply(null, Array.from(slice) as unknown as number[]);
   }
   return s;

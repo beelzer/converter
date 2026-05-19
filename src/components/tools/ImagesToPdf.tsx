@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import FileDropZone from "../shared/FileDropZone";
+import type { Status } from "../shared/Widgets";
 import { downloadBlob, formatSize, newId } from "../../lib/util/file";
+import { MIME } from "../../lib/util/mime";
 import { imageToPngBytes } from "../../lib/image/decode";
 import type {
   ImageInput,
@@ -17,14 +19,6 @@ interface QueuedFile {
   size: number;
   file: File;
 }
-
-type Status =
-  | { kind: "idle" }
-  | { kind: "loading-worker" }
-  | { kind: "decoding" }
-  | { kind: "building" }
-  | { kind: "done"; pageCount: number; filename: string }
-  | { kind: "error"; message: string };
 
 const ACCEPTED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"];
 
@@ -81,7 +75,7 @@ export default function ImagesToPdf() {
 
   const ensureWorker = useCallback(async (): Promise<Worker> => {
     if (workerRef.current) return workerRef.current;
-    setStatus({ kind: "loading-worker" });
+    setStatus({ kind: "loading", label: "Preparing builder" });
     const worker = new Worker(
       new URL("../../lib/pdf/imagesToPdf.worker.ts", import.meta.url),
       { type: "module" }
@@ -131,7 +125,7 @@ export default function ImagesToPdf() {
     if (files.length === 0) return;
     try {
       const worker = await ensureWorker();
-      setStatus({ kind: "decoding" });
+      setStatus({ kind: "working", label: "Decoding images" });
       const inputs = await Promise.all(files.map((f) => fileToImageInput(f.file)));
 
       const id = ++requestIdRef.current;
@@ -144,7 +138,7 @@ export default function ImagesToPdf() {
         worker.addEventListener("message", handler);
       });
 
-      setStatus({ kind: "building" });
+      setStatus({ kind: "working", label: "Building PDF in your browser" });
       const req: ImagesToPdfRequest = { id, images: inputs };
       worker.postMessage(
         req,
@@ -156,10 +150,10 @@ export default function ImagesToPdf() {
         setStatus({ kind: "error", message: result.error });
         return;
       }
-      downloadBlob(result.bytes, result.filename, "application/pdf");
+      downloadBlob(result.bytes, result.filename, MIME.PDF);
       setStatus({
         kind: "done",
-        pageCount: result.pageCount,
+        count: result.pageCount,
         filename: result.filename,
       });
     } catch (err) {
@@ -188,9 +182,8 @@ export default function ImagesToPdf() {
   const onItemDragEnd = () => setDragIndex(null);
 
   const busy =
-    status.kind === "loading-worker" ||
-    status.kind === "decoding" ||
-    status.kind === "building";
+    status.kind === "loading" ||
+    status.kind === "working";
 
   return (
     <div class="w-full">
@@ -291,7 +284,7 @@ export default function ImagesToPdf() {
               class="font-mono text-sm px-5 py-2.5 rounded-md bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:bg-[var(--color-fg-dim)] disabled:cursor-not-allowed transition-colors"
             >
               {busy
-                ? statusLabel(status)
+                ? buttonLabel(status)
                 : `Build PDF (${files.length} page${files.length === 1 ? "" : "s"})`}
             </button>
           </div>
@@ -304,18 +297,18 @@ export default function ImagesToPdf() {
         aria-atomic="true"
         class="mt-4 min-h-[1.5rem] font-mono text-sm"
       >
-        {status.kind === "loading-worker" && (
-          <span class="text-[var(--color-fg-muted)]">Preparing builder…</span>
+        {status.kind === "loading" && (
+          <span class="text-[var(--color-fg-muted)]">{status.label}…</span>
         )}
-        {status.kind === "decoding" && (
-          <span class="text-[var(--color-fg-muted)]">Decoding images…</span>
+        {status.kind === "working" && status.label === "Decoding images" && (
+          <span class="text-[var(--color-fg-muted)]">{status.label}…</span>
         )}
-        {status.kind === "building" && (
-          <span class="text-[var(--color-accent)]">Building PDF in your browser…</span>
+        {status.kind === "working" && status.label === "Building PDF in your browser" && (
+          <span class="text-[var(--color-accent)]">{status.label}…</span>
         )}
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
-            ✓ Built {status.pageCount} page{status.pageCount === 1 ? "" : "s"} → {status.filename} downloaded.
+            ✓ Built {status.count} page{status.count === 1 ? "" : "s"} → {status.filename} downloaded.
           </span>
         )}
         {status.kind === "error" && (
@@ -326,15 +319,9 @@ export default function ImagesToPdf() {
   );
 }
 
-function statusLabel(status: Status): string {
-  switch (status.kind) {
-    case "loading-worker":
-      return "Loading…";
-    case "decoding":
-      return "Decoding…";
-    case "building":
-      return "Building…";
-    default:
-      return "Working…";
-  }
+function buttonLabel(status: Status): string {
+  if (status.kind === "loading") return "Loading…";
+  if (status.kind === "working" && status.label === "Decoding images") return "Decoding…";
+  if (status.kind === "working") return "Building…";
+  return "Working…";
 }

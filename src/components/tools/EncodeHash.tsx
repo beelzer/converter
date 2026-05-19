@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import { copyText } from "../../lib/util/clipboard";
 import { hashBytes, hashText, HASH_ALGORITHMS, type HashAlgorithm } from "../../lib/encode/hash";
 
 type Source = "text" | "file";
@@ -58,11 +59,7 @@ export default function EncodeHash() {
   };
 
   const copy = async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {
-      // ignore
-    }
+    await copyText(value);
   };
 
   return (

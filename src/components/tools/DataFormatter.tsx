@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import DataInput from "../shared/DataInput";
-import { downloadBlob } from "../../lib/util/file";
+import OutputPanel from "../shared/OutputPanel";
+import type { Status } from "../shared/Widgets";
 import { parseData } from "../../lib/data/parse";
 import { serializeData } from "../../lib/data/serialize";
 import {
@@ -11,12 +12,6 @@ import {
   detectFromText,
   type DataFormat,
 } from "../../lib/data/formats";
-
-type Status =
-  | { kind: "idle" }
-  | { kind: "working" }
-  | { kind: "done"; bytes: number }
-  | { kind: "error"; message: string };
 
 export default function DataFormatter() {
   const [input, setInput] = useState("");
@@ -50,30 +45,12 @@ export default function DataFormatter() {
         indent,
       });
       setOutput(result);
-      setStatus({ kind: "done", bytes: new TextEncoder().encode(result).length });
+      setStatus({ kind: "done", size: new TextEncoder().encode(result).length });
     } catch (err) {
       setStatus({
         kind: "error",
         message: err instanceof Error ? err.message : String(err),
       });
-    }
-  };
-
-  const onDownload = () => {
-    if (!output) return;
-    downloadBlob(
-      new Blob([output], { type: FORMAT_MIME[format] }),
-      `formatted.${FORMAT_EXT[format]}`,
-      FORMAT_MIME[format]
-    );
-  };
-
-  const onCopy = async () => {
-    if (!output) return;
-    try {
-      await navigator.clipboard.writeText(output);
-    } catch {
-      // ignore
     }
   };
 
@@ -154,49 +131,20 @@ export default function DataFormatter() {
 
       {(output || status.kind === "error") && (
         <div class="mt-6">
-          <div class="flex items-center justify-between mb-2">
-            <label class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)]">
-              Output
-            </label>
-          </div>
-          <div class="rounded-lg border-2 border-[var(--color-border)] bg-[var(--color-surface)]">
-            <textarea
-              value={output}
-              readOnly
-              rows={12}
-              aria-label="Formatted output"
-              class="block w-full bg-transparent p-3 font-mono text-sm text-[var(--color-fg)] focus:outline-none resize-y"
-              spellcheck={false}
-            />
-            <div class="flex items-center justify-between px-3 py-2 border-t border-[var(--color-border)] text-xs font-mono text-[var(--color-fg-dim)]">
-              <div class="flex gap-3">
-                <button
-                  type="button"
-                  onClick={onCopy}
-                  disabled={!output}
-                  class="hover:text-[var(--color-accent)] disabled:opacity-50"
-                >
-                  copy
-                </button>
-                <button
-                  type="button"
-                  onClick={onDownload}
-                  disabled={!output}
-                  class="hover:text-[var(--color-accent)] disabled:opacity-50"
-                >
-                  download
-                </button>
-              </div>
-              <span>{output.length > 0 ? `${output.length.toLocaleString()} chars` : "empty"}</span>
-            </div>
-          </div>
+          <OutputPanel
+            value={output}
+            ariaLabel="Formatted output"
+            label="Output"
+            filename={`formatted.${FORMAT_EXT[format]}`}
+            mime={FORMAT_MIME[format]}
+          />
         </div>
       )}
 
       <div role="status" aria-live="polite" class="mt-4 min-h-[1.5rem] font-mono text-sm">
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
-            ✓ {status.bytes.toLocaleString()} bytes
+            ✓ {(status.size ?? 0).toLocaleString()} bytes
           </span>
         )}
         {status.kind === "error" && (

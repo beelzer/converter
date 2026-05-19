@@ -1,84 +1,20 @@
 ---
 import ToolLayout from "../components/ToolLayout.astro";
-
-const tools = [
-  {
-    slug: "pdf",
-    name: "PDF",
-    description:
-      "Merge, split, rotate, reorganize, convert to images, or build a PDF from images — all in one tool.",
-    status: "live",
-  },
-  {
-    slug: "image",
-    name: "Image",
-    description:
-      "Convert between JPG, PNG, WebP, AVIF, HEIC and more. Resize, compress, strip EXIF, build favicons, rasterize SVG.",
-    status: "live",
-  },
-  {
-    slug: "data",
-    name: "Data",
-    description:
-      "Convert between JSON, YAML, XML, TOML, CSV and TSV. Format, minify, validate, generate TypeScript types.",
-    status: "live",
-  },
-  {
-    slug: "audio-video",
-    name: "Audio / Video",
-    description:
-      "Convert between MP4, WebM, MOV, MKV. Trim, compress, extract audio, video to GIF, frames, merge clips — via WebCodecs.",
-    status: "live",
-  },
-  {
-    slug: "color",
-    name: "Color",
-    description:
-      "Convert HEX / RGB / HSL / OKLCH / CMYK. Generate harmonies. WCAG contrast checker.",
-    status: "live",
-  },
-  {
-    slug: "encode",
-    name: "Encode",
-    description:
-      "Base64, URL encoding, JWT decoder, SHA-1 / 256 / 384 / 512 hashes via WebCrypto.",
-    status: "live",
-  },
-  {
-    slug: "document",
-    name: "Document",
-    description:
-      "Markdown ↔ HTML, DOCX → HTML/Markdown/text, PDF → text. Browser-native print to PDF.",
-    status: "live",
-  },
-  {
-    slug: "archive",
-    name: "Archive",
-    description:
-      "Create ZIP / TAR / TAR.GZ / GZIP, or extract any of those plus RAR. Auto-detect format on read.",
-    status: "live",
-  },
-  {
-    slug: "code",
-    name: "Code",
-    description:
-      "Beautify and minify JavaScript, TypeScript, CSS, HTML, JSON, SCSS, Markdown, YAML, GraphQL, Vue, SQL.",
-    status: "live",
-  },
-];
+import { TOOLS } from "../lib/tools";
+import { SITE_URL, SITE_NAME } from "../lib/site";
 
 const schema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  name: "tools.dcln.me",
-  url: "https://tools.dcln.me",
+  name: SITE_NAME,
+  url: SITE_URL,
   description:
     "Free file tools that run entirely in your browser. No uploads, no accounts, no ads.",
 };
 ---
 
 <ToolLayout
-  title="tools.dcln.me — File tools that run in your browser. No uploads."
+  title={`${SITE_NAME} — File tools that run in your browser. No uploads.`}
   description="Free tools to convert and edit PDFs, images, data files, and more. Everything runs in your browser — files never leave your device. No accounts, no uploads, no ads."
   schema={schema}
 >
@@ -107,49 +43,28 @@ const schema = {
       Tools
     </h2>
     <ul class="grid gap-3 sm:grid-cols-2">
-      {tools.map((tool) => (
-        tool.status === "live" ? (
-          <li>
-            <a
-              href={`/${tool.slug}`}
-              class="group block p-5 border border-[var(--color-border)] rounded-md bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-2)] transition-colors"
-            >
-              <div class="flex items-baseline justify-between mb-2">
-                <h3 class="font-mono text-base font-semibold text-[var(--color-fg)]">
-                  {tool.name}
-                </h3>
-                <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-accent)]">
-                  live
-                </span>
-              </div>
-              <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
-                {tool.description}
-              </p>
-              <p class="mt-3 font-mono text-xs text-[var(--color-fg-dim)] group-hover:text-[var(--color-accent)]">
-                open →
-              </p>
-            </a>
-          </li>
-        ) : (
-          <li>
-            <div
-              class="block p-5 border border-dashed border-[var(--color-border)] rounded-md opacity-60 cursor-not-allowed"
-              aria-disabled="true"
-            >
-              <div class="flex items-baseline justify-between mb-2">
-                <h3 class="font-mono text-base font-semibold text-[var(--color-fg-muted)]">
-                  {tool.name}
-                </h3>
-                <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-fg-dim)]">
-                  soon
-                </span>
-              </div>
-              <p class="text-sm text-[var(--color-fg-dim)] leading-relaxed">
-                {tool.description}
-              </p>
+      {TOOLS.map((tool) => (
+        <li>
+          <a
+            href={`/${tool.slug}`}
+            class="group block p-5 border border-[var(--color-border)] rounded-md bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-2)] transition-colors"
+          >
+            <div class="flex items-baseline justify-between mb-2">
+              <h3 class="font-mono text-base font-semibold text-[var(--color-fg)]">
+                {tool.name}
+              </h3>
+              <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-accent)]">
+                live
+              </span>
             </div>
-          </li>
-        )
+            <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
+              {tool.longBlurb}
+            </p>
+            <p class="mt-3 font-mono text-xs text-[var(--color-fg-dim)] group-hover:text-[var(--color-accent)]">
+              open →
+            </p>
+          </a>
+        </li>
       ))}
     </ul>
   </section>

@@ -1,0 +1,30 @@
+---
+interface Step {
+  title: string;
+  body: string;
+}
+interface Props {
+  steps: Step[];
+  headingId?: string;
+}
+const { steps, headingId = "how-heading" } = Astro.props;
+---
+
+<section class="mx-auto max-w-5xl px-6 mt-16" aria-labelledby={headingId}>
+  <h2 id={headingId} class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
+    How it works
+  </h2>
+  <ol class="space-y-4 text-[var(--color-fg-muted)]">
+    {steps.map((step, i) => (
+      <li class="flex gap-4">
+        <span class="font-mono text-[var(--color-accent)] text-sm shrink-0 w-8">
+          {String(i + 1).padStart(2, "0")}
+        </span>
+        <span>
+          <strong class="text-[var(--color-fg)] font-mono text-base block mb-1">{step.title}</strong>
+          {step.body}
+        </span>
+      </li>
+    ))}
+  </ol>
+</section>

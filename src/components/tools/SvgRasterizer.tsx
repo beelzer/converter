@@ -1,6 +1,8 @@
 import { useCallback, useState } from "preact/hooks";
 import FileDropZone from "../shared/FileDropZone";
+import type { Status } from "../shared/Widgets";
 import { downloadBlob, formatSize } from "../../lib/util/file";
+import { stripExt } from "../../lib/util/filename";
 import { rasterizeSvg } from "../../lib/image/svg";
 import {
   FORMAT_LABEL,
@@ -12,17 +14,7 @@ interface LoadedFile {
   file: File;
 }
 
-type Status =
-  | { kind: "idle" }
-  | { kind: "rasterizing" }
-  | { kind: "done"; filename: string; width: number; height: number }
-  | { kind: "error"; message: string };
-
 const FORMATS_FOR_SVG: SupportedOutputFormat[] = ["png", "jpeg", "webp"];
-
-function basenameWithoutExt(name: string): string {
-  return name.replace(/\.[a-z0-9]+$/i, "");
-}
 
 export default function SvgRasterizer() {
   const [file, setFile] = useState<LoadedFile | null>(null);
@@ -61,17 +53,16 @@ export default function SvgRasterizer() {
       });
       return;
     }
-    setStatus({ kind: "rasterizing" });
+    setStatus({ kind: "working", label: "Rasterizing in your browser" });
     try {
       const result = await rasterizeSvg(file.file, { format, width });
-      const base = basenameWithoutExt(file.file.name) || "image";
+      const base = stripExt(file.file.name) || "image";
       const filename = `${base}-${result.width}x${result.height}.${extensionFor(format)}`;
       downloadBlob(result.blob, filename, result.blob.type);
       setStatus({
         kind: "done",
         filename,
-        width: result.width,
-        height: result.height,
+        meta: { width: result.width, height: result.height },
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -79,7 +70,7 @@ export default function SvgRasterizer() {
     }
   };
 
-  const busy = status.kind === "rasterizing";
+  const busy = status.kind === "working";
 
   return (
     <div class="w-full">
@@ -181,12 +172,12 @@ export default function SvgRasterizer() {
         aria-atomic="true"
         class="mt-4 min-h-[1.5rem] font-mono text-sm"
       >
-        {status.kind === "rasterizing" && (
-          <span class="text-[var(--color-accent)]">Rasterizing in your browser…</span>
+        {status.kind === "working" && (
+          <span class="text-[var(--color-accent)]">{status.label}…</span>
         )}
         {status.kind === "done" && (
           <span class="text-[var(--color-accent)]">
-            ✓ Rasterized to {status.width}×{status.height} → {status.filename} downloaded.
+            ✓ Rasterized to {(status.meta?.width as number) ?? 0}×{(status.meta?.height as number) ?? 0} → {status.filename} downloaded.
           </span>
         )}
         {status.kind === "error" && (

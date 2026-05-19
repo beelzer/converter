@@ -1,116 +1,42 @@
 ---
-import ToolLayout from "../components/ToolLayout.astro";
+import HubPageLayout from "../components/HubPageLayout.astro";
 import ColorHub from "../components/tools/ColorHub.tsx";
 
 const title = "Color tools — HEX, RGB, HSL, OKLCH, CMYK + palette + WCAG | tools.dcln.me";
 const description =
   "Convert between HEX, RGB, HSL, OKLCH and CMYK. Generate color harmonies (complementary, analogous, triadic, tetradic, split-complementary, monochromatic). WCAG contrast checker. Everything runs locally.";
 
-const howToSchema = {
-  "@context": "https://schema.org",
-  "@type": "HowTo",
-  name: "How to convert and check colors in your browser",
-  step: [
-    {
-      "@type": "HowToStep",
-      position: 1,
-      name: "Pick a mode",
-      text: "Choose a tab: Convert, Palette, or Contrast.",
-    },
-    {
-      "@type": "HowToStep",
-      position: 2,
-      name: "Type or pick a color",
-      text: "Type any CSS color (HEX, rgb(...), hsl(...), oklch(...), cmyk(...)) or use the native picker.",
-    },
-    {
-      "@type": "HowToStep",
-      position: 3,
-      name: "Copy what you need",
-      text: "Click any swatch or value to copy. WCAG ratings update live.",
-    },
-  ],
-};
+const lead =
+  "Convert between HEX, RGB, HSL, OKLCH and CMYK. Generate harmonies. Check WCAG contrast. Everything runs locally — no dependencies, no upload, no tracking.";
 
-const faqSchema = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: [
-    {
-      "@type": "Question",
-      name: "Why OKLCH instead of just LCH or LAB?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "OKLCH (built on Oklab) is perceptually uniform — equal numeric changes correspond to roughly equal perceived changes. It's the format CSS Color Module Level 4 recommends for design-token systems because hue stays consistent across lightness levels, unlike HSL where reds and blues at the same 'lightness' look very different.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Are these color values uploaded anywhere?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "No. All math runs in JavaScript in your browser. There is no server. Open the network tab while you type — you won't see a single request.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Why doesn't my CMYK match my printer?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "CMYK conversions on the web are naive — they use a 'device CMYK' formula that ignores the specific ink set and paper. For prepress work, generate the CMYK you need from a color profile in InDesign / Photoshop, not from a web tool. This tool is fine for rough conversions and reference.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "What does WCAG AA / AAA mean?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "AA is the legally common standard (4.5:1 for normal text, 3:1 for large text). AAA is stricter (7:1 / 4.5:1) and harder to hit while keeping a non-grey palette. Large text means 18pt+ regular weight or 14pt+ bold. If you have to pick one, target AA.",
-      },
-    },
-  ],
-};
-
-const breadcrumbSchema = {
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  itemListElement: [
-    { "@type": "ListItem", position: 1, name: "Tools", item: "https://tools.dcln.me/" },
-    { "@type": "ListItem", position: 2, name: "Color", item: "https://tools.dcln.me/color" },
-  ],
-};
+const faq = [
+  {
+    q: "Why OKLCH instead of just LCH or LAB?",
+    a: "OKLCH (built on Oklab) is perceptually uniform — equal numeric changes correspond to roughly equal perceived changes. It's the format CSS Color Module Level 4 recommends for design-token systems because hue stays consistent across lightness levels, unlike HSL where reds and blues at the same 'lightness' look very different.",
+  },
+  {
+    q: "Are these color values uploaded anywhere?",
+    a: "No. All math runs in JavaScript in your browser. There is no server. Open the network tab while you type — you won't see a single request.",
+  },
+  {
+    q: "Why doesn't my CMYK match my printer?",
+    a: "CMYK conversions on the web are naive — they use a 'device CMYK' formula that ignores the specific ink set and paper. For prepress work, generate the CMYK you need from a color profile in InDesign / Photoshop, not from a web tool. This tool is fine for rough conversions and reference.",
+  },
+  {
+    q: "What does WCAG AA / AAA mean?",
+    a: "AA is the legally common standard (4.5:1 for normal text, 3:1 for large text). AAA is stricter (7:1 / 4.5:1) and harder to hit while keeping a non-grey palette. Large text means 18pt+ regular weight or 14pt+ bold. If you have to pick one, target AA.",
+  },
+];
 ---
 
-<ToolLayout title={title} description={description} schema={[howToSchema, faqSchema, breadcrumbSchema]}>
-  <section class="mx-auto max-w-5xl px-6 pt-12 sm:pt-16">
-    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-3 uppercase tracking-widest">
-      <a href="/" class="hover:text-[var(--color-fg)]">tools</a>
-      <span class="mx-2">/</span>
-      <span>color</span>
-    </p>
-    <h1 class="font-mono text-3xl sm:text-4xl font-semibold leading-tight">
-      Color tools.
-    </h1>
-    <p class="mt-4 text-lg text-[var(--color-fg-muted)] leading-relaxed">
-      Convert between HEX, RGB, HSL, OKLCH and CMYK. Generate harmonies. Check WCAG contrast. Everything runs locally — no dependencies, no upload, no tracking.
-    </p>
-  </section>
-
-  <section class="mx-auto max-w-5xl px-6 mt-10" aria-label="Color toolkit">
-    <ColorHub client:load />
-  </section>
-
-  <section class="mx-auto max-w-5xl px-6 mt-16 mb-12" aria-labelledby="faq-heading">
-    <h2 id="faq-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-4">
-      FAQ
-    </h2>
-    <dl class="space-y-6">
-      {faqSchema.mainEntity.map((qa) => (
-        <div>
-          <dt class="font-mono text-base text-[var(--color-fg)] mb-2">{qa.name}</dt>
-          <dd class="text-[var(--color-fg-muted)] leading-relaxed">{qa.acceptedAnswer.text}</dd>
-        </div>
-      ))}
-    </dl>
-  </section>
-</ToolLayout>
+<HubPageLayout
+  title={title}
+  description={description}
+  slug="color"
+  label="Color"
+  hubHeading="Color tools."
+  lead={lead}
+  faq={faq}
+>
+  <ColorHub client:load />
+</HubPageLayout>

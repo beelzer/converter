@@ -1,0 +1,82 @@
+---
+import ToolLayout from "./ToolLayout.astro";
+import HowItWorks from "./HowItWorks.astro";
+import Faq from "./Faq.astro";
+import {
+  breadcrumbSchema,
+  faqSchema,
+  howToSchema,
+  type FaqItem,
+  type HowToStep,
+} from "../lib/schema";
+
+interface Props {
+  title: string;
+  description: string;
+  // Breadcrumb / heading config
+  slug: string; // e.g. "pdf"
+  label: string; // e.g. "PDF"
+  hubHeading: string; // e.g. "PDF tools."
+  lead: string;
+  // Optional sections
+  howToName?: string;
+  howToDescription?: string;
+  howToSteps?: HowToStep[];
+  // Same steps rendered with custom visible body text (lets the SEO step.text
+  // and the on-page narrative diverge when needed).
+  howToBlocks?: { title: string; body: string }[];
+  faq: FaqItem[];
+}
+
+const {
+  title,
+  description,
+  slug,
+  label,
+  hubHeading,
+  lead,
+  howToName,
+  howToDescription,
+  howToSteps,
+  howToBlocks,
+  faq,
+} = Astro.props;
+
+const schemas: object[] = [];
+if (howToName && howToSteps && howToSteps.length > 0) {
+  schemas.push(
+    howToSchema({ name: howToName, description: howToDescription, steps: howToSteps })
+  );
+}
+if (faq.length > 0) schemas.push(faqSchema(faq));
+schemas.push(
+  breadcrumbSchema([
+    { name: "Tools", path: "/" },
+    { name: label, path: `/${slug}` },
+  ])
+);
+---
+
+<ToolLayout title={title} description={description} schema={schemas}>
+  <section class="mx-auto max-w-5xl px-6 pt-12 sm:pt-16">
+    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-3 uppercase tracking-widest">
+      <a href="/" class="hover:text-[var(--color-fg)]">tools</a>
+      <span class="mx-2">/</span>
+      <span>{slug}</span>
+    </p>
+    <h1 class="font-mono text-3xl sm:text-4xl font-semibold leading-tight">
+      {hubHeading}
+    </h1>
+    <p class="mt-4 text-lg text-[var(--color-fg-muted)] leading-relaxed">
+      {lead}
+    </p>
+  </section>
+
+  <section class="mx-auto max-w-5xl px-6 mt-10" aria-label={`${label} toolkit`}>
+    <slot />
+  </section>
+
+  {howToBlocks && howToBlocks.length > 0 && <HowItWorks steps={howToBlocks} />}
+
+  {faq.length > 0 && <Faq items={faq} />}
+</ToolLayout>
