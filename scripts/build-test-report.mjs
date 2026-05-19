@@ -99,10 +99,17 @@ function generateWaveform(mediaPath, outDir, outName) {
   // scaling the column to envelope amplitude — combined with the trim
   // window above, this makes individual oscillations visible for short
   // clips (a constant sine tone otherwise renders as a solid block).
+  //
+  // `silenceremove` drops leading encoder priming (AAC ~48ms, Opus ~6ms,
+  // mediabunny-encoded streams often a bit more) so the input and output
+  // waveforms align on the actual start of the signal rather than on the
+  // file's first decoded PCM sample.
   const wave = "showwavespic=s=600x80:colors=#20b2aa:split_channels=0:draw=full:filter=peak";
+  const skipLeadingSilence =
+    "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.001:detection=peak";
   const filter = trim
-    ? `atrim=duration=${trim},aresample=async=0,${wave}`
-    : wave;
+    ? `${skipLeadingSilence},atrim=duration=${trim},aresample=async=0,${wave}`
+    : `${skipLeadingSilence},${wave}`;
 
   const r = ffmpegRun([
     "-i", mediaPath,
