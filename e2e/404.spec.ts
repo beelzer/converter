@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("404 page", () => {
   test("unknown URL returns 404 status and renders the styled page", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("Color toolkit", () => {
   test("homepage lists Color as live", async ({ page }) => {

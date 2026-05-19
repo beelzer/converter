@@ -1,8 +1,7 @@
-import { test, expect } from "@playwright/test";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
-import { FIXTURES, report } from "./fixtures";
+import { test, expect, FIXTURES, report } from "./fixtures";
 
 async function writeTextFixture(name: string, body: string): Promise<string> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "data-e2e-"));

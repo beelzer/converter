@@ -786,6 +786,37 @@ function renderSimilarityBadge(spec, slug, input, output) {
   return "";
 }
 
+function statusBadgeHtml(meta) {
+  const status = meta.status;
+  if (!status) return "";
+  const passed = status === "passed";
+  const flaky = passed && (meta.retries ?? 0) > 0;
+  const cls = passed
+    ? flaky
+      ? "test-status status-flaky"
+      : "test-status status-passed"
+    : "test-status status-failed";
+  const label = passed
+    ? flaky
+      ? `passed (retry ${meta.retries})`
+      : "passed"
+    : status; // failed / timedOut / interrupted / skipped
+  const dur =
+    typeof meta.duration === "number"
+      ? `<span class="test-duration">${(meta.duration / 1000).toFixed(2)}s</span>`
+      : "";
+  return `<span class="${cls}">${escapeHtml(label)}</span>${dur}`;
+}
+
+function renderErrors(meta) {
+  if (!meta.errors || meta.errors.length === 0) return "";
+  const items = meta.errors.map((e) => `<li>${escapeHtml(String(e))}</li>`).join("");
+  return `<div class="test-errors">
+    <h4>Errors</h4>
+    <ul>${items}</ul>
+  </div>`;
+}
+
 function renderTest(spec, entry) {
   const { meta, slug } = entry;
   const inputs = meta.inputs ?? [];
@@ -833,9 +864,15 @@ function renderTest(spec, entry) {
     }
   }
 
-  return `<article class="test" id="${escapeHtml(`${spec}-${slug}`)}">
-    <h3>${escapeHtml(meta.title)}</h3>
+  const passedFlag = meta.status ? (meta.status === "passed" ? "passed" : "failed") : "unknown";
+
+  return `<article class="test status-${passedFlag}" id="${escapeHtml(`${spec}-${slug}`)}">
+    <div class="test-header">
+      <h3>${escapeHtml(meta.title)}</h3>
+      ${statusBadgeHtml(meta)}
+    </div>
     ${meta.notes ? `<p class="notes">${escapeHtml(meta.notes)}</p>` : ""}
+    ${renderErrors(meta)}
     ${badge}
     <div class="cols">
       ${renderColumn("Inputs", inputs)}
@@ -845,9 +882,26 @@ function renderTest(spec, entry) {
   </article>`;
 }
 
+function countStatuses(entries) {
+  let passed = 0;
+  let failed = 0;
+  let unknown = 0;
+  for (const e of entries) {
+    const s = e.meta.status;
+    if (s === "passed") passed++;
+    else if (s) failed++; // failed, timedOut, interrupted, skipped
+    else unknown++;
+  }
+  return { passed, failed, unknown, total: entries.length };
+}
+
 function renderSection(spec, entries) {
+  const { passed, failed, total } = countStatuses(entries);
+  const sub = failed > 0
+    ? `<span class="count count-fail">${failed} failed</span> <span class="count">/ ${total} tests</span>`
+    : `<span class="count count-pass">${passed} passed</span> <span class="count">/ ${total} tests</span>`;
   return `<section id="${escapeHtml(spec)}">
-    <h2>${escapeHtml(spec)} <span class="count">(${entries.length} tests)</span></h2>
+    <h2>${escapeHtml(spec)} <span class="counts">${sub}</span></h2>
     ${entries.map((e) => renderTest(spec, e)).join("\n")}
   </section>`;
 }
@@ -961,7 +1015,66 @@ h2 .count { color: var(--fg-dim); margin-left: 0.5rem; font-weight: normal; }
   padding: 1.25rem 1.5rem 1.5rem;
   margin-bottom: 1.25rem;
 }
-.test h3 { margin: 0 0 0.5rem; font-size: 1.05rem; font-weight: 600; }
+.test.status-failed { border-color: rgba(248, 81, 73, 0.55); }
+.test-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0 0 0.5rem;
+}
+.test h3 { margin: 0; font-size: 1.05rem; font-weight: 600; flex: 1; min-width: 0; }
+.test-status {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  white-space: nowrap;
+}
+.test-status.status-passed { color: #3fb950; border-color: rgba(63, 185, 80, 0.5); }
+.test-status.status-flaky  { color: #d29922; border-color: rgba(210, 153, 34, 0.5); }
+.test-status.status-failed { color: #f85149; border-color: rgba(248, 81, 73, 0.6); background: rgba(248, 81, 73, 0.08); }
+.test-duration {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.7rem;
+  color: var(--fg-dim);
+  white-space: nowrap;
+}
+.test-errors {
+  border: 1px solid rgba(248, 81, 73, 0.5);
+  background: rgba(248, 81, 73, 0.08);
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 0.9rem;
+}
+.test-errors h4 {
+  margin: 0 0 0.4rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #f85149;
+}
+.test-errors ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--fg);
+}
+/* Sidebar + section header status colors. */
+h2 .counts { font-size: 0.85rem; margin-left: 0.5rem; font-weight: normal; }
+h2 .count.count-pass { color: #3fb950; }
+h2 .count.count-fail { color: #f85149; }
+h2 .count { color: var(--fg-dim); }
+.sidebar nav a.has-failed .nav-name { color: #f85149; }
+.sidebar nav a .nav-count.nav-fail { color: #f85149; font-weight: bold; }
+.sidebar .overall-pass { color: #3fb950; font-weight: 600; }
+.sidebar .overall-fail { color: #f85149; font-weight: 600; }
 .test .notes {
   font-size: 0.875rem;
   color: var(--fg-dim);
@@ -1267,14 +1380,32 @@ function renderHtml(groups) {
   const generatedAt = new Date().toISOString().replace("T", " ").slice(0, 16) + " UTC";
   const sortedSpecs = Array.from(groups.keys()).sort();
 
+  // Aggregate pass/fail counts for the sidebar.
+  let totalPassed = 0;
+  let totalFailed = 0;
+  const specStats = new Map();
+  for (const s of sortedSpecs) {
+    const stats = countStatuses(groups.get(s));
+    specStats.set(s, stats);
+    totalPassed += stats.passed;
+    totalFailed += stats.failed;
+  }
+
   const navLinks = sortedSpecs
-    .map(
-      (s) =>
-        `<a href="#${escapeHtml(s)}" data-target="${escapeHtml(s)}">` +
+    .map((s) => {
+      const stats = specStats.get(s);
+      const cls = stats.failed > 0 ? "has-failed" : "all-passed";
+      const countHtml =
+        stats.failed > 0
+          ? `<span class="nav-count nav-fail">${stats.failed}f</span>`
+          : `<span class="nav-count">${stats.total}</span>`;
+      return (
+        `<a href="#${escapeHtml(s)}" data-target="${escapeHtml(s)}" class="${cls}">` +
         `<span class="nav-name">${escapeHtml(s)}</span>` +
-        `<span class="nav-count">${groups.get(s).length}</span>` +
+        countHtml +
         `</a>`
-    )
+      );
+    })
     .join("");
 
   const sections = sortedSpecs.map((s) => renderSection(s, groups.get(s))).join("\n");
@@ -1320,7 +1451,12 @@ function renderHtml(groups) {
 <body>
   <aside class="sidebar">
     <h1>visual e2e report</h1>
-    <p class="subtitle">${totalTests} tests · ${groups.size} hubs<br>generated ${escapeHtml(generatedAt)}</p>
+    <p class="subtitle">
+      ${totalFailed > 0
+        ? `<span class="overall-fail">${totalFailed} failed</span> / ${totalTests} tests`
+        : `<span class="overall-pass">all ${totalPassed} passed</span>`}
+      · ${groups.size} hubs<br>generated ${escapeHtml(generatedAt)}
+    </p>
     <nav>${navLinks}</nav>
   </aside>
   <main>${sections}</main>

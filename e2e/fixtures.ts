@@ -8,13 +8,16 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { TestInfo } from "@playwright/test";
+import { test as baseTest, type TestInfo } from "@playwright/test";
+
+export { expect } from "@playwright/test";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, "fixtures");
@@ -97,6 +100,53 @@ function copyArtifact(
     ext,
   };
 }
+
+// After a test finishes (success or failure), update its meta.json with the
+// final status, duration, and the first line of any errors. Tests that
+// didn't call report() leave no meta.json and get skipped silently.
+function writeStatusToMeta(testInfo: TestInfo): void {
+  if (process.env.REPORT_ARTIFACTS === "0") return;
+  const specBase = path.basename(testInfo.file).replace(/\.spec\.ts$/, "");
+  const dir = path.join(ARTIFACTS_DIR, specBase, slugify(testInfo.title));
+  const metaPath = path.join(dir, "meta.json");
+  if (!existsSync(metaPath)) return;
+  try {
+    const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+    meta.status = testInfo.status; // 'passed' | 'failed' | 'timedOut' | 'skipped' | 'interrupted'
+    meta.expectedStatus = testInfo.expectedStatus;
+    meta.duration = testInfo.duration;
+    meta.retries = testInfo.retry;
+    if (testInfo.errors && testInfo.errors.length > 0) {
+      meta.errors = testInfo.errors
+        .map((e) => {
+          const msg = e.message ?? String(e);
+          // Keep just the first non-empty line — full traces blow up the
+          // report and the artifact diff usually tells the story.
+          return msg
+            .split("\n")
+            .map((l) => l.replace(/\[[0-9;]*m/g, "").trim())
+            .find((l) => l.length > 0);
+        })
+        .filter(Boolean);
+    }
+    writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+  } catch {
+    // best-effort — never fail a test on report bookkeeping
+  }
+}
+
+// Extended `test` exported in place of @playwright/test's. The `_statusWriter`
+// fixture is `auto: true` so every test using this `test` gets its final
+// status written without each spec having to declare an afterEach.
+export const test = baseTest.extend<{ _statusWriter: void }>({
+  _statusWriter: [
+    async ({}, use, testInfo) => {
+      await use();
+      writeStatusToMeta(testInfo);
+    },
+    { auto: true },
+  ],
+});
 
 export function report(testInfo: TestInfo, r: ReportInput): void {
   if (process.env.REPORT_ARTIFACTS === "0") return;

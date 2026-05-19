@@ -1,10 +1,9 @@
-import { test, expect } from "@playwright/test";
 import { unzipSync } from "fflate";
 import { PNG } from "pngjs";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
-import { FIXTURES, report } from "./fixtures";
+import { test, expect, FIXTURES, report } from "./fixtures";
 
 // Minimal SVG fixture.
 const SVG_TEXT =

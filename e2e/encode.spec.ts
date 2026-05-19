@@ -1,9 +1,8 @@
-import { test, expect } from "@playwright/test";
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { FIXTURES, report } from "./fixtures";
+import { test, expect, FIXTURES, report } from "./fixtures";
 
 async function snapshot(text: string, ext: string, hint: string): Promise<string> {
   const filepath = path.join(os.tmpdir(), `e2e-${hint}-${Date.now()}.${ext}`);

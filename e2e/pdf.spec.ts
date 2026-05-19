@@ -1,10 +1,9 @@
-import { test, expect } from "@playwright/test";
 import { PDFDocument } from "pdf-lib";
 import { unzipSync } from "fflate";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
-import { FIXTURES, report } from "./fixtures";
+import { test, expect, FIXTURES, report } from "./fixtures";
 
 const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEUlEQVR4nGP8z8DwHwQYGRgAFKEDA1f+gjwAAAAASUVORK5CYII=";
