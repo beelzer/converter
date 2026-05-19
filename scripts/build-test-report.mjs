@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
 import { unzipSync, gunzipSync } from "fflate";
 import hljs from "highlight.js";
+import { diffLines } from "diff";
 
 // Map artifact extension → highlight.js language id. Anything not in the map
 // falls back to hljs auto-detect, which is decent but not perfect.
@@ -369,6 +370,56 @@ function highlightCode(body, ext) {
   return escapeHtml(body);
 }
 
+// Render a GitHub-style unified line diff. Used for tests where input and
+// output share an extension (beautify, minify, format) — we can confidently
+// compare the two as the same language. Cross-language conversions (JSON →
+// YAML, HTML → Markdown) skip this since a line diff there is just noise.
+function renderUnifiedDiff(inputBody, outputBody, ext) {
+  const changes = diffLines(inputBody, outputBody);
+  const lang = HLJS_LANG[ext];
+  const hl = (s) => {
+    try {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(s, { language: lang, ignoreIllegals: true }).value;
+      }
+    } catch { /* fall through */ }
+    return escapeHtml(s);
+  };
+
+  let added = 0;
+  let removed = 0;
+  const html = changes
+    .flatMap((c) => {
+      const raw = c.value.endsWith("\n") ? c.value.slice(0, -1) : c.value;
+      const lines = raw.split("\n");
+      return lines.map((line) => {
+        if (c.added) {
+          added++;
+          return `<div class="diff-line diff-added"><span class="diff-marker">+</span><span class="diff-content">${hl(line)}</span></div>`;
+        }
+        if (c.removed) {
+          removed++;
+          return `<div class="diff-line diff-removed"><span class="diff-marker">-</span><span class="diff-content">${hl(line)}</span></div>`;
+        }
+        return `<div class="diff-line diff-context"><span class="diff-marker"> </span><span class="diff-content">${hl(line)}</span></div>`;
+      });
+    })
+    .join("");
+
+  if (added === 0 && removed === 0) return ""; // identical content — no diff
+
+  return `<details class="diff-wrapper" open>
+    <summary>
+      <span class="diff-summary-label">diff</span>
+      <span class="diff-summary-stats">
+        <span class="diff-stat-added">+${added}</span>
+        <span class="diff-stat-removed">-${removed}</span>
+      </span>
+    </summary>
+    <pre class="diff"><code>${html}</code></pre>
+  </details>`;
+}
+
 function renderArtifact(spec, slug, artifact) {
   const fullPath = join(ARTIFACTS, spec, slug, artifact.name);
   const href = `${encodeURIComponent(spec)}/${encodeURIComponent(slug)}/${encodeURIComponent(artifact.name)}`;
@@ -522,8 +573,32 @@ function renderTest(spec, entry) {
   // If there's exactly one input and one output, attempt a similarity badge
   // for the test. Most tests fit this 1:1 shape; for merges (N → 1) we skip.
   let badge = "";
+  let diff = "";
   if (inputs.length === 1 && outputs.length === 1) {
-    badge = renderSimilarityBadge(spec, slug, inputs[0], outputs[0]);
+    const [inArt, outArt] = [inputs[0], outputs[0]];
+    badge = renderSimilarityBadge(spec, slug, inArt, outArt);
+
+    // GitHub-style unified diff for same-extension text artifacts
+    // (beautify, minify, format, identical-passthrough). Cross-format
+    // conversions like JSON → YAML or HTML → Markdown skip this.
+    const inExt = inArt.ext.toLowerCase();
+    const outExt = outArt.ext.toLowerCase();
+    if (
+      inExt === outExt &&
+      TEXT_EXTS.has(inExt) &&
+      !ARCHIVE_EXTS.has(inExt) &&
+      !AUDIO_EXTS.has(inExt) &&
+      !VIDEO_EXTS.has(inExt) &&
+      !IMAGE_EXTS.has(inExt)
+    ) {
+      try {
+        const inBody = readFileSync(join(ARTIFACTS, spec, slug, inArt.name), "utf8");
+        const outBody = readFileSync(join(ARTIFACTS, spec, slug, outArt.name), "utf8");
+        diff = renderUnifiedDiff(inBody, outBody, inExt);
+      } catch {
+        // Couldn't read as text — skip diff silently.
+      }
+    }
   }
 
   return `<article class="test" id="${escapeHtml(`${spec}-${slug}`)}">
@@ -534,6 +609,7 @@ function renderTest(spec, entry) {
       ${renderColumn("Inputs", inputs)}
       ${renderColumn("Outputs", outputs)}
     </div>
+    ${diff}
   </article>`;
 }
 
@@ -822,6 +898,73 @@ h2 .count { color: var(--fg-dim); margin-left: 0.5rem; font-weight: normal; }
 .similarity.sim-good  .sim-value { color: #d29922; }
 .similarity.sim-degraded { border-color: rgba(248, 81, 73, 0.5); }
 .similarity.sim-degraded .sim-value { color: #f85149; }
+
+/* Unified diff (GitHub-style red/green) — shown for same-ext text artifacts */
+.diff-wrapper {
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.diff-wrapper > summary {
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  user-select: none;
+  background: var(--surface);
+}
+.diff-wrapper[open] > summary { border-bottom: 1px solid var(--border); }
+.diff-summary-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.7rem;
+  color: var(--fg-dim);
+}
+.diff-summary-stats { display: inline-flex; gap: 0.5rem; }
+.diff-stat-added { color: #3fb950; }
+.diff-stat-removed { color: #f85149; }
+.diff {
+  margin: 0;
+  padding: 0.3rem 0;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
+  max-height: 600px;
+  overflow: auto;
+}
+.diff code { display: block; }
+.diff-line {
+  display: grid;
+  grid-template-columns: 2ch 1fr;
+  align-items: baseline;
+  padding: 0 0.5rem;
+  white-space: pre;
+}
+.diff-marker {
+  text-align: center;
+  user-select: none;
+  font-weight: bold;
+  opacity: 0.75;
+}
+.diff-content { word-break: break-word; white-space: pre-wrap; }
+.diff-added {
+  background: rgba(63, 185, 80, 0.12);
+  border-left: 3px solid rgba(63, 185, 80, 0.55);
+}
+.diff-added .diff-marker { color: #3fb950; }
+.diff-removed {
+  background: rgba(248, 81, 73, 0.10);
+  border-left: 3px solid rgba(248, 81, 73, 0.55);
+}
+.diff-removed .diff-marker { color: #f85149; }
+.diff-context {
+  color: var(--fg-dim);
+  border-left: 3px solid transparent;
+}
 
 /* highlight.js — github-dark-ish palette, tuned to the report colors. */
 .hljs { color: var(--fg); background: transparent; }
