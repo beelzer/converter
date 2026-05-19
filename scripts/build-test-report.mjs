@@ -748,8 +748,6 @@ h2 .count { color: var(--fg-dim); margin-left: 0.5rem; font-weight: normal; }
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 360px;
-  overflow-y: auto;
 }
 .archive-list li {
   display: grid;
