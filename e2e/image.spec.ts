@@ -4,6 +4,7 @@ import { PNG } from "pngjs";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
+import { FIXTURES } from "./fixtures";
 
 // Minimal SVG fixture.
 const SVG_TEXT =
@@ -135,6 +136,112 @@ test.describe("Image toolkit", () => {
     await download.saveAs(outPath);
     const zip = await fs.readFile(outPath);
     const files = unzipSync(zip);
+    expect(Object.keys(files)).toContain("favicon.ico");
+    expect(Object.keys(files)).toContain("apple-touch-icon.png");
+    expect(Object.keys(files)).toContain("site.webmanifest");
+  });
+
+  test("Convert mode converts a real WebP fixture to PNG", async ({ page }) => {
+    await page.goto("/image/");
+    await page.setInputFiles('input[type="file"]', FIXTURES.image.webp);
+    await page.getByRole("button", { name: /^PNG$/ }).click();
+    await page.getByRole("button", { name: /Convert .* PNG/i }).click();
+
+    const dl = await page.waitForEvent("download");
+    expect(dl.suggestedFilename()).toBe("sample.png");
+    const outPath = path.join(os.tmpdir(), `e2e-webp2png-${Date.now()}.png`);
+    await dl.saveAs(outPath);
+    const bytes = await fs.readFile(outPath);
+    // PNG signature
+    expect([bytes[0], bytes[1], bytes[2], bytes[3]]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  });
+
+  test("Convert mode converts a real animated GIF to PNG (first frame)", async ({
+    page,
+  }) => {
+    await page.goto("/image/");
+    await page.setInputFiles('input[type="file"]', FIXTURES.image.animatedGif);
+    await page.getByRole("button", { name: /^PNG$/ }).click();
+    await page.getByRole("button", { name: /Convert .* PNG/i }).click();
+
+    const dl = await page.waitForEvent("download");
+    expect(dl.suggestedFilename()).toBe("animated.png");
+  });
+
+  test("Resize mode shrinks the real gradient PNG to specific bounds", async ({
+    page,
+  }) => {
+    await page.goto("/image/");
+    await page.getByRole("tab", { name: /^Resize$/ }).click();
+    await page.setInputFiles('input[type="file"]', FIXTURES.image.gradientPng);
+
+    await page.getByLabel(/Max width/i).fill("50");
+    await page.getByLabel(/Max height/i).fill("50");
+
+    const dl = page.waitForEvent("download");
+    await page.getByRole("button", { name: /Resize & download/i }).click();
+    const download = await dl;
+    // 200x150 source clamped to 50x50 bounds → preserves aspect → 50x38 (or 67x50).
+    expect(download.suggestedFilename()).toMatch(/^gradient-\d+x\d+\.png$/);
+
+    const outPath = path.join(os.tmpdir(), `e2e-real-resize-${Date.now()}.png`);
+    await download.saveAs(outPath);
+    const bytes = await fs.readFile(outPath);
+    const png = PNG.sync.read(bytes);
+    expect(png.width).toBeLessThanOrEqual(50);
+    expect(png.height).toBeLessThanOrEqual(50);
+  });
+
+  test("SVG → Raster rasterizes the real fixture SVG", async ({ page }) => {
+    await page.goto("/image/");
+    await page.getByRole("tab", { name: /SVG → Raster/ }).click();
+    await page.setInputFiles('input[type="file"]', FIXTURES.image.logoSvg);
+    const dl = page.waitForEvent("download");
+    await page.getByRole("button", { name: /Rasterize & download/i }).click();
+    const download = await dl;
+    // 200x100 viewBox doubled by default 1024 scale = 1024x512 (or so).
+    expect(download.suggestedFilename()).toMatch(/^logo-\d+x\d+\.png$/);
+  });
+
+  test("Strip EXIF mode reads the EXIF tags from the fixture JPG", async ({ page }) => {
+    await page.goto("/image/");
+    await page.getByRole("tab", { name: /Strip EXIF/i }).click();
+    await page.setInputFiles('input[type="file"]', FIXTURES.image.photoWithExifJpg);
+
+    // The exif readout should surface the values we baked in.
+    await expect(page.getByText(/tools\.dcln\.me/)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/Synthetic Fixture/)).toBeVisible();
+
+    const dl = page.waitForEvent("download");
+    await page.getByRole("button", { name: /Strip EXIF & download/i }).click();
+    const download = await dl;
+    expect(download.suggestedFilename()).toBe("photo-with-exif-no-exif.jpg");
+
+    const outPath = path.join(os.tmpdir(), `e2e-real-noexif-${Date.now()}.jpg`);
+    await download.saveAs(outPath);
+    const bytes = await fs.readFile(outPath);
+    // JPEG SOI
+    expect([bytes[0], bytes[1]]).toEqual([0xff, 0xd8]);
+    // The original camera-make string should no longer appear in the bytes.
+    const haystack = bytes.toString("binary");
+    expect(haystack).not.toContain("tools.dcln.me");
+    expect(haystack).not.toContain("Synthetic Fixture");
+  });
+
+  test("Favicon mode emits a complete bundle from the real gradient PNG", async ({
+    page,
+  }) => {
+    await page.goto("/image/");
+    await page.getByRole("tab", { name: /^Favicon$/ }).click();
+    await page.setInputFiles('input[type="file"]', FIXTURES.image.gradientPng);
+    const dl = page.waitForEvent("download");
+    await page.getByRole("button", { name: /Generate & download/i }).click();
+    const download = await dl;
+    expect(download.suggestedFilename()).toBe("favicon-bundle.zip");
+
+    const outPath = path.join(os.tmpdir(), `e2e-real-favicon-${Date.now()}.zip`);
+    await download.saveAs(outPath);
+    const files = unzipSync(await fs.readFile(outPath));
     expect(Object.keys(files)).toContain("favicon.ico");
     expect(Object.keys(files)).toContain("apple-touch-icon.png");
     expect(Object.keys(files)).toContain("site.webmanifest");

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
+import { FIXTURES } from "./fixtures";
 
 async function writeTextFixture(name: string, body: string): Promise<string> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "doc-e2e-"));
@@ -66,5 +67,91 @@ test.describe("Document toolkit", () => {
     await page.goto("/document/");
     await page.getByRole("tab", { name: "PDF → text" }).click();
     await expect(page.getByRole("button", { name: /Choose PDF/ })).toBeVisible();
+  });
+});
+
+test.describe("Document toolkit — real fixtures", () => {
+  test("Markdown mode loads the committed fixture and renders it", async ({ page }) => {
+    await page.goto("/document/");
+    await page.setInputFiles('input[aria-label="Pick a Markdown file"]', FIXTURES.document.md);
+    await expect(page.getByLabel("Markdown source")).toHaveValue(/Sample Markdown/, {
+      timeout: 10_000,
+    });
+
+    const preview = page.frameLocator('iframe[title="Markdown preview"]');
+    await expect(preview.getByRole("heading", { name: /^Sample Markdown$/ })).toBeVisible();
+  });
+
+  test("HTML mode converts the fixture HTML to Markdown", async ({ page }) => {
+    await page.goto("/document/");
+    await page.getByRole("tab", { name: "HTML" }).click();
+    const body = await fs.readFile(FIXTURES.document.html, "utf8");
+    await page.getByLabel("HTML source").fill(body);
+    await page.getByRole("button", { name: /Convert to Markdown/ }).click();
+    const out = page.getByLabel("Markdown output");
+    await expect(out).not.toHaveValue("", { timeout: 5000 });
+    const value = await out.inputValue();
+    expect(value).toContain("# Sample HTML");
+    expect(value).toContain("**bold**");
+    expect(value).toContain("alpha");
+  });
+
+  test("DOCX mode converts the fixture to Markdown", async ({ page }) => {
+    await page.goto("/document/");
+    await page.getByRole("tab", { name: "DOCX" }).click();
+    await page.setInputFiles('input[type="file"]', FIXTURES.document.docx);
+
+    // Markdown is the default selected output format.
+    await page.getByRole("button", { name: /Convert → Markdown/i }).click();
+
+    const out = page.getByLabel("Conversion result");
+    await expect(out).not.toHaveValue("", { timeout: 10_000 });
+    const value = await out.inputValue();
+    expect(value).toContain("tools.dcln.me");
+    // The DOCX has bold text — turndown should emit asterisks.
+    expect(value).toMatch(/\*\*bold\*\*/);
+  });
+
+  test("DOCX mode can also produce HTML", async ({ page }) => {
+    await page.goto("/document/");
+    await page.getByRole("tab", { name: "DOCX" }).click();
+    await page.setInputFiles('input[type="file"]', FIXTURES.document.docx);
+    await page.getByRole("button", { name: /^HTML$/, exact: true }).click();
+    await page.getByRole("button", { name: /Convert → HTML/i }).click();
+
+    const out = page.getByLabel("Conversion result");
+    await expect(out).not.toHaveValue("", { timeout: 10_000 });
+    const value = await out.inputValue();
+    expect(value).toContain("<h1>");
+    expect(value).toContain("<strong>bold</strong>");
+  });
+
+  test("PDF → text extracts real text from the multi-page fixture", async ({ page }) => {
+    await page.goto("/document/");
+    await page.getByRole("tab", { name: "PDF → text" }).click();
+    await page.setInputFiles('input[type="file"]', FIXTURES.pdf.multiPage);
+
+    await page.getByRole("button", { name: /Extract text/i }).click();
+
+    const out = page.getByLabel(/Extracted text/i);
+    await expect(out).not.toHaveValue("", { timeout: 15_000 });
+    const value = await out.inputValue();
+    // 5 pages of known content.
+    expect(value).toContain("The quick brown fox");
+    expect(value).toContain("Page 1 of 5");
+    expect(value).toContain("Page 5 of 5");
+  });
+
+  test("PDF → text on a scanned (image-only) fixture yields effectively nothing", async ({
+    page,
+  }) => {
+    await page.goto("/document/");
+    await page.getByRole("tab", { name: "PDF → text" }).click();
+    await page.setInputFiles('input[type="file"]', FIXTURES.pdf.scanned);
+    await page.getByRole("button", { name: /Extract text/i }).click();
+    // pdf.js exits cleanly with empty text; we should reach the "done" state.
+    await expect(page.getByText(/Extracted text from \d+ page/i)).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });

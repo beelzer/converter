@@ -1,4 +1,7 @@
 import { test, expect } from "@playwright/test";
+import { createHash } from "node:crypto";
+import fs from "node:fs/promises";
+import { FIXTURES } from "./fixtures";
 
 // A real, well-formed JWT with header.payload.signature parts and an expired
 // exp claim so the "expired" badge renders.
@@ -64,5 +67,40 @@ test.describe("Encoding toolkit", () => {
     await expect(
       page.getByText(/2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824/i)
     ).toBeVisible();
+  });
+});
+
+test.describe("Encoding toolkit — real fixtures", () => {
+  test("Hash mode against a real PNG fixture matches node:crypto SHA-256", async ({
+    page,
+  }) => {
+    const bytes = await fs.readFile(FIXTURES.image.gradientPng);
+    const expected = createHash("sha256").update(bytes).digest("hex");
+
+    await page.goto("/encode/");
+    await page.getByRole("tab", { name: "Hash" }).click();
+    // Switch to the file source.
+    await page.getByRole("radio", { name: "File" }).click();
+    await page.setInputFiles(
+      'input[aria-label="Pick a file to hash"]',
+      FIXTURES.image.gradientPng
+    );
+    await expect(page.getByText(new RegExp(expected, "i"))).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
+  test("Base64 encode-from-file produces the expected encoding of the SVG fixture", async ({
+    page,
+  }) => {
+    const bytes = await fs.readFile(FIXTURES.image.logoSvg);
+    const expected = bytes.toString("base64");
+
+    await page.goto("/encode/");
+    await page.setInputFiles(
+      'input[aria-label="Pick a file to base64-encode"]',
+      FIXTURES.image.logoSvg
+    );
+    await expect(page.getByLabel("Output")).toHaveValue(expected, { timeout: 10_000 });
   });
 });

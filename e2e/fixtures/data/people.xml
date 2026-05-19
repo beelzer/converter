@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<people>
+  <person>
+    <name>Ada Lovelace</name>
+    <born>1815</born>
+    <role>mathematician</role>
+    <languages>analytical-engine</languages>
+    <active>false</active>
+  </person>
+  <person>
+    <name>Grace Hopper</name>
+    <born>1906</born>
+    <role>rear admiral</role>
+    <languages>COBOL</languages>
+    <languages>FLOW-MATIC</languages>
+    <active>false</active>
+  </person>
+  <person>
+    <name>Hedy Lamarr</name>
+    <born>1914</born>
+    <role>inventor</role>
+    <active>false</active>
+  </person>
+</people>

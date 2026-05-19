@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { FIXTURES } from "./fixtures";
 
 test.describe("Code toolkit", () => {
   test("homepage lists Code as live", async ({ page }) => {
@@ -67,6 +68,87 @@ test.describe("Code toolkit", () => {
     // terser strips comments and whitespace
     expect(value).not.toContain("sum two things");
     expect(value.length).toBeLessThan(80);
+  });
+
+  test("Beautify mode picks a real JS fixture and formats it", async ({ page }) => {
+    await page.goto("/code/");
+    await page.setInputFiles(
+      'input[aria-label="Pick a source file"]',
+      FIXTURES.code.js
+    );
+    // detectFromFile should switch the language select to JavaScript.
+    await expect(page.getByLabel("Language")).toHaveValue("javascript");
+    await page.getByRole("button", { name: /Format JavaScript/ }).click();
+
+    const out = page.getByLabel("Formatted output");
+    await expect(out).not.toHaveValue("", { timeout: 5000 });
+    const value = await out.inputValue();
+    // Prettier should expand the one-liner into multiple lines.
+    expect(value.split("\n").length).toBeGreaterThan(3);
+    expect(value).toContain("fibonacci");
+  });
+
+  test("Beautify mode formats a real SQL fixture", async ({ page }) => {
+    await page.goto("/code/");
+    await page.setInputFiles(
+      'input[aria-label="Pick a source file"]',
+      FIXTURES.code.sql
+    );
+    await expect(page.getByLabel("Language")).toHaveValue("sql");
+    await page.getByRole("button", { name: /Format SQL/ }).click();
+
+    const out = page.getByLabel("Formatted output");
+    await expect(out).not.toHaveValue("", { timeout: 5000 });
+    const value = await out.inputValue();
+    expect(value).toContain("SELECT");
+    expect(value).toContain("LEFT JOIN");
+    expect(value).toContain("GROUP BY");
+  });
+
+  test("Beautify mode formats a real CSS fixture", async ({ page }) => {
+    await page.goto("/code/");
+    await page.setInputFiles(
+      'input[aria-label="Pick a source file"]',
+      FIXTURES.code.css
+    );
+    await expect(page.getByLabel("Language")).toHaveValue("css");
+    await page.getByRole("button", { name: /Format CSS/ }).click();
+    const out = page.getByLabel("Formatted output");
+    await expect(out).not.toHaveValue("", { timeout: 5000 });
+    expect((await out.inputValue()).split("\n").length).toBeGreaterThan(3);
+  });
+
+  test("Minify mode shrinks a real CSS fixture", async ({ page }) => {
+    await page.goto("/code/");
+    await page.getByRole("tab", { name: "Minify" }).click();
+    await page.setInputFiles(
+      'input[aria-label="Pick a source file"]',
+      FIXTURES.code.css
+    );
+    await expect(page.getByLabel("Language")).toHaveValue("css");
+    await page.getByRole("button", { name: /Minify CSS/ }).click();
+    const out = page.getByLabel("Minified output");
+    await expect(out).not.toHaveValue("", { timeout: 5000 });
+    const value = await out.inputValue();
+    // csso should drop the comment block and the unused class.
+    expect(value).not.toContain("button styles");
+    expect(value.length).toBeLessThan(150);
+  });
+
+  test("Minify mode collapses a real HTML fixture", async ({ page }) => {
+    await page.goto("/code/");
+    await page.getByRole("tab", { name: "Minify" }).click();
+    await page.setInputFiles(
+      'input[aria-label="Pick a source file"]',
+      FIXTURES.code.html
+    );
+    await expect(page.getByLabel("Language")).toHaveValue("html");
+    await page.getByRole("button", { name: /Minify HTML/ }).click();
+    const out = page.getByLabel("Minified output");
+    await expect(out).not.toHaveValue("", { timeout: 5000 });
+    const value = await out.inputValue();
+    // No newlines between sibling tags after minification.
+    expect(value).not.toMatch(/<body>\s+<h1>/);
   });
 
   test("Minify mode compacts CSS via csso", async ({ page }) => {

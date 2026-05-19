@@ -1,0 +1,20 @@
+[[people]]
+name = "Ada Lovelace"
+born = 1815
+role = "mathematician"
+languages = [ "analytical-engine" ]
+active = false
+
+[[people]]
+name = "Grace Hopper"
+born = 1906
+role = "rear admiral"
+languages = [ "COBOL", "FLOW-MATIC" ]
+active = false
+
+[[people]]
+name = "Hedy Lamarr"
+born = 1914
+role = "inventor"
+languages = []
+active = false

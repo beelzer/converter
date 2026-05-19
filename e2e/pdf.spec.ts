@@ -4,6 +4,7 @@ import { unzipSync } from "fflate";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
+import { FIXTURES } from "./fixtures";
 
 const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEUlEQVR4nGP8z8DwHwQYGRgAFKEDA1f+gjwAAAAASUVORK5CYII=";
@@ -171,5 +172,112 @@ test.describe("PDF toolkit", () => {
     await expect(page.getByRole("button", { name: /Delete page 1/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Delete page 2/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Delete page 3/i })).toBeVisible();
+  });
+});
+
+// Real-fixture tests: exercise the PDF toolkit against the committed
+// multi-page PDF (5 pages, real text + embedded PNG) and the rotated PDF.
+test.describe("PDF toolkit — real fixtures", () => {
+  test("merges multi-page fixture with rotated fixture (5 + 3 = 8 pages)", async ({
+    page,
+  }) => {
+    await page.goto("/pdf/");
+    await page.setInputFiles('input[type="file"]', [
+      FIXTURES.pdf.multiPage,
+      FIXTURES.pdf.rotated,
+    ]);
+    await expect(page.getByRole("button", { name: /Move .* down/i })).toHaveCount(2);
+
+    const dl = page.waitForEvent("download");
+    await page.getByRole("button", { name: /Merge & download/i }).click();
+    const download = await dl;
+
+    const outPath = path.join(os.tmpdir(), `e2e-real-merge-${Date.now()}.pdf`);
+    await download.saveAs(outPath);
+    const merged = await PDFDocument.load(await fs.readFile(outPath));
+    expect(merged.getPageCount()).toBe(8);
+  });
+
+  test("Split mode extracts specific pages from the 5-page fixture", async ({
+    page,
+  }) => {
+    await page.goto("/pdf/");
+    await page.getByRole("tab", { name: /^Split$/ }).click();
+    await page.setInputFiles('input[type="file"]', FIXTURES.pdf.multiPage);
+    await expect(page.getByText(/5 pages/i)).toBeVisible();
+
+    await page.getByLabel(/Pages to extract/i).fill("1, 3, 5");
+    const dl = page.waitForEvent("download");
+    await page.getByRole("button", { name: /Extract & download/i }).click();
+    const download = await dl;
+
+    const outPath = path.join(os.tmpdir(), `e2e-real-split-${Date.now()}.pdf`);
+    await download.saveAs(outPath);
+    const split = await PDFDocument.load(await fs.readFile(outPath));
+    expect(split.getPageCount()).toBe(3);
+  });
+
+  test("Rotate mode applies 180° to the multi-page fixture", async ({ page }) => {
+    await page.goto("/pdf/");
+    await page.getByRole("tab", { name: /^Rotate$/ }).click();
+    await page.setInputFiles('input[type="file"]', FIXTURES.pdf.multiPage);
+    await expect(page.getByText(/5 pages/i)).toBeVisible();
+
+    // Pick 180° from the angle controls.
+    await page.getByRole("button", { name: /180° clockwise/i }).click();
+
+    const dl = page.waitForEvent("download");
+    await page.getByRole("button", { name: /Rotate & download/i }).click();
+    const download = await dl;
+
+    const outPath = path.join(os.tmpdir(), `e2e-real-rot-${Date.now()}.pdf`);
+    await download.saveAs(outPath);
+    const rotated = await PDFDocument.load(await fs.readFile(outPath));
+    for (const p of rotated.getPages()) {
+      expect(p.getRotation().angle).toBe(180);
+    }
+  });
+
+  test("PDF → Images renders the multi-page fixture into a 5-PNG ZIP", async ({
+    page,
+  }) => {
+    await page.goto("/pdf/");
+    await page.getByRole("tab", { name: /PDF → Images/i }).click();
+    await page.setInputFiles('input[type="file"]', FIXTURES.pdf.multiPage);
+    await expect(page.getByText(/5 pages/i)).toBeVisible();
+    await page.getByRole("button", { name: /^PNG$/ }).click();
+
+    const dl = page.waitForEvent("download");
+    await page.getByRole("button", { name: /Convert & download/i }).click();
+    const download = await dl;
+
+    const outPath = path.join(os.tmpdir(), `e2e-real-rasterize-${Date.now()}.zip`);
+    await download.saveAs(outPath);
+    const files = unzipSync(await fs.readFile(outPath));
+    const names = Object.keys(files).sort();
+    expect(names).toHaveLength(5);
+    expect(names[0]).toMatch(/multi-page-page-1\.png$/);
+    expect(names[4]).toMatch(/multi-page-page-5\.png$/);
+    // Each rendered page should be a valid PNG (89 50 4E 47).
+    for (const name of names) {
+      const bytes = files[name];
+      expect(bytes[0]).toBe(0x89);
+      expect(bytes[1]).toBe(0x50);
+      expect(bytes[2]).toBe(0x4e);
+      expect(bytes[3]).toBe(0x47);
+    }
+  });
+
+  test("Organize mode renders thumbnails for every page in the 5-page fixture", async ({
+    page,
+  }) => {
+    await page.goto("/pdf/");
+    await page.getByRole("tab", { name: /^Organize$/ }).click();
+    await page.setInputFiles('input[type="file"]', FIXTURES.pdf.multiPage);
+    for (let i = 1; i <= 5; i++) {
+      await expect(
+        page.getByRole("button", { name: new RegExp(`Delete page ${i}`, "i") })
+      ).toBeVisible();
+    }
   });
 });

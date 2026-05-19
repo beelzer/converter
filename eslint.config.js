@@ -7,7 +7,7 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
 
 export default [
   {
-    ignores: ['dist/', '.astro/', 'node_modules/', '.wrangler/', 'playwright-report/', 'test-results/', '.lighthouseci/'],
+    ignores: ['dist/', '.astro/', 'node_modules/', '.wrangler/', 'playwright-report/', 'test-results/', '.lighthouseci/', 'e2e/fixtures/'],
   },
   ...eslintPluginAstro.configs.recommended,
   {
