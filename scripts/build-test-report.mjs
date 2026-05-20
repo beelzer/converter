@@ -19,6 +19,7 @@ import yaml from "js-yaml";
 import { parse as parseToml } from "smol-toml";
 import { XMLParser } from "fast-xml-parser";
 import Papa from "papaparse";
+import exifr from "exifr";
 
 // Map artifact extension → highlight.js language id. Anything not in the map
 // falls back to hljs auto-detect, which is decent but not perfect.
@@ -125,6 +126,68 @@ function generateWaveform(mediaPath, outDir, outName) {
   ]);
   if (!r.ok || !existsSync(outPath)) return null;
   return outName;
+}
+
+// EXIF tags worth surfacing in the report. Pulled from any JPEG (or other
+// EXIF-bearing format) and written to a sidecar so the sync renderer can
+// embed them. Used mainly for the Strip-EXIF test, where seeing the
+// before/after metadata side-by-side makes the operation's effect obvious.
+const EXIF_TAGS_TO_SHOW = [
+  ["Make", "Camera make"],
+  ["Model", "Camera model"],
+  ["LensModel", "Lens"],
+  ["Software", "Software"],
+  ["DateTimeOriginal", "Taken"],
+  ["CreateDate", "Created"],
+  ["ISO", "ISO"],
+  ["FNumber", "Aperture"],
+  ["ExposureTime", "Shutter speed"],
+  ["FocalLength", "Focal length"],
+  ["Orientation", "Orientation"],
+  ["latitude", "GPS latitude"],
+  ["longitude", "GPS longitude"],
+  ["GPSAltitude", "GPS altitude"],
+];
+
+async function prepareExifSidecars(groups) {
+  const EXIF_EXTS = new Set(["jpg", "jpeg", "tif", "tiff", "heic", "heif", "webp", "png"]);
+  const tasks = [];
+  for (const [spec, entries] of groups) {
+    for (const entry of entries) {
+      const all = [
+        ...(entry.meta.inputs ?? []),
+        ...(entry.meta.outputs ?? []),
+      ];
+      for (const art of all) {
+        if (!EXIF_EXTS.has(art.ext?.toLowerCase())) continue;
+        const imgPath = join(ARTIFACTS, spec, entry.slug, art.name);
+        const sidecarPath = imgPath + ".exif.json";
+        if (existsSync(sidecarPath)) continue;
+        tasks.push(
+          exifr
+            .parse(imgPath, { reviveValues: true })
+            .then((raw) => {
+              const out = {};
+              if (raw) {
+                for (const [key, label] of EXIF_TAGS_TO_SHOW) {
+                  const v = raw[key];
+                  if (v === undefined || v === null) continue;
+                  out[label] =
+                    v instanceof Date
+                      ? v.toISOString().replace("T", " ").replace(/\.\d+Z$/, " UTC")
+                      : typeof v === "object"
+                      ? JSON.stringify(v)
+                      : v;
+                }
+              }
+              writeFileSync(sidecarPath, JSON.stringify(out, null, 2));
+            })
+            .catch(() => writeFileSync(sidecarPath, "{}"))
+        );
+      }
+    }
+  }
+  if (tasks.length > 0) await Promise.all(tasks);
 }
 
 // Pre-render every DOCX artifact to a sidecar HTML file using mammoth, so
@@ -659,8 +722,35 @@ function renderArtifact(spec, slug, artifact) {
     </figcaption>`;
 
   if (IMAGE_EXTS.has(ext)) {
+    // Show EXIF metadata (if any) inline so the Strip-EXIF test reads as
+    // "input had these tags, output has none". prepareExifSidecars wrote
+    // the sidecar JSON in the async pre-pass.
+    let exifBlock = "";
+    const exifSidecar = fullPath + ".exif.json";
+    if (existsSync(exifSidecar)) {
+      try {
+        const exif = JSON.parse(readFileSync(exifSidecar, "utf8"));
+        const keys = Object.keys(exif);
+        if (keys.length > 0) {
+          const rows = keys
+            .map(
+              (k) =>
+                `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(exif[k]))}</dd>`
+            )
+            .join("");
+          exifBlock = `<details class="exif-block" open>
+            <summary>
+              <span class="exif-label">EXIF metadata</span>
+              <span class="exif-count">${keys.length} field${keys.length === 1 ? "" : "s"}</span>
+            </summary>
+            <dl class="exif-list">${rows}</dl>
+          </details>`;
+        }
+      } catch { /* ignore */ }
+    }
     return `<figure class="art art-image">${header}
       <a href="${href}" target="_blank"><img src="${href}" alt="${label}" loading="lazy"></a>
+      ${exifBlock}
     </figure>`;
   }
 
@@ -1291,6 +1381,39 @@ h2 .count { color: var(--fg-dim); }
   background-position: 0 0, 0 10px, 10px -10px, -10px 0;
 }
 .art-video video, .art-audio audio { display: block; width: 100%; }
+.exif-block {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.exif-block > summary {
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  user-select: none;
+}
+.exif-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-dim);
+}
+.exif-count { color: var(--fg); }
+.exif-list {
+  margin: 0;
+  padding: 0.5rem 0.85rem 0.75rem;
+  display: grid;
+  grid-template-columns: minmax(7rem, max-content) 1fr;
+  column-gap: 1rem;
+  row-gap: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.74rem;
+  border-top: 1px dashed var(--border);
+}
+.exif-list dt { color: var(--fg-dim); }
+.exif-list dd { margin: 0; color: var(--fg); word-break: break-word; }
 .waveform {
   display: block;
   width: 100%;
@@ -1627,9 +1750,13 @@ async function main() {
     process.exit(1);
   }
   // Pre-generate sidecar previews that need async work (DOCX → HTML via
-  // mammoth) and fetch the material-icon-theme icons on first run. The
-  // sync renderer below just reads from disk.
-  await Promise.all([prepareDocxPreviews(groups), ensureIconCache()]);
+  // mammoth, EXIF extraction via exifr) and fetch the file-type icons on
+  // first run. The sync renderer below just reads from disk.
+  await Promise.all([
+    prepareDocxPreviews(groups),
+    prepareExifSidecars(groups),
+    ensureIconCache(),
+  ]);
   const html = renderHtml(groups);
   const out = join(ARTIFACTS, "index.html");
   writeFileSync(out, html);
