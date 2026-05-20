@@ -1204,93 +1204,96 @@ section { padding-top: 0.5rem; }
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: 10px;
-  padding: 1.25rem 1.5rem;
   margin-bottom: 1.75rem;
-  display: grid;
-  gap: 1.25rem;
+  overflow: hidden;
 }
 .summary.summary-passed { border-color: rgba(63, 185, 80, 0.45); }
 .summary.summary-flaky  { border-color: rgba(210, 153, 34, 0.45); }
-.summary.summary-failed { border-color: rgba(248, 81, 73, 0.55); background: linear-gradient(to bottom, rgba(248, 81, 73, 0.06), var(--surface) 50%); }
-.summary-main {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  flex-wrap: wrap;
+.summary.summary-failed { border-color: rgba(248, 81, 73, 0.55); }
+.summary-head {
+  padding: 1rem 1.25rem 0;
 }
-.summary-headline {
+.summary-status {
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
-  padding-right: 1.5rem;
-  border-right: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  margin-bottom: 0.85rem;
 }
-.summary-big {
+.summary-glyph {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 2.6rem;
+  font-size: 1.25rem;
   font-weight: 700;
   line-height: 1;
 }
-.summary-big-pass { color: #3fb950; }
-.summary-big-fail { color: #f85149; }
-.summary-big-label {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.summary.summary-passed .summary-glyph { color: #3fb950; }
+.summary.summary-flaky  .summary-glyph { color: #d29922; }
+.summary.summary-failed .summary-glyph { color: #f85149; }
+.summary-headline {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.005em;
+}
+.summary.summary-failed .summary-headline { color: #f85149; }
+.summary-aside {
+  margin-left: auto;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   color: var(--fg-dim);
 }
-.summary-meta {
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(7rem, max-content));
-  gap: 0 1.5rem;
-  row-gap: 0.5rem;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 0.85rem;
+.summary-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
 }
-.summary-meta > div { display: grid; }
-.summary-meta dt {
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.65rem;
-  color: var(--fg-dim);
-}
-.summary-meta dd { margin: 0; color: var(--fg); font-weight: 600; }
-.summary-meta .meta-pass { color: #3fb950; }
-.summary-meta .meta-fail { color: #f85149; }
-.summary-meta .meta-flaky { color: #d29922; }
+.summary-bar > span { display: block; height: 100%; }
+.summary-bar .bar-pass  { background: #3fb950; }
+.summary-bar .bar-flaky { background: #d29922; }
+.summary-bar .bar-fail  { background: #f85149; }
 
 .hub-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
   gap: 0.5rem;
+  padding: 1rem 1.25rem;
   border-top: 1px solid var(--border);
-  padding-top: 1.25rem;
+  margin-top: 1rem;
+  background: var(--bg);
 }
 .hub-tile {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.55rem 0.75rem;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--bg);
+  background: var(--surface);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   text-decoration: none;
+  font-size: 0.78rem;
+  transition: border-color 120ms, transform 120ms;
 }
 .hub-tile.hub-pass { border-left: 3px solid #3fb950; }
 .hub-tile.hub-fail { border-left: 3px solid #f85149; }
-.hub-tile:hover { background: rgba(255, 255, 255, 0.03); }
-.hub-name { font-size: 0.8rem; color: var(--fg); }
-.hub-numbers { font-size: 0.7rem; }
+.hub-tile:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.hub-tile.hub-pass:hover { border-color: #3fb950; }
+.hub-tile.hub-fail:hover { border-color: #f85149; }
+.hub-name { color: var(--fg); }
+.hub-numbers { font-size: 0.72rem; white-space: nowrap; }
 .hub-pass-count { color: #3fb950; }
 .hub-fail-count { color: #f85149; }
-.hub-total { color: var(--fg-dim); margin-left: 0.25rem; }
+.hub-total { color: var(--fg-dim); margin-left: 0.2rem; }
 
 .summary-failed-list {
   border-top: 1px solid var(--border);
-  padding-top: 1.1rem;
+  padding: 1rem 1.25rem 1.1rem;
 }
 .summary-failed-list h3 {
   margin: 0 0 0.6rem;
@@ -1852,22 +1855,31 @@ function renderHtml(groups) {
       </div>`
     : "";
 
+  // Bar segments — green for passed, amber for flaky, red for failed.
+  // Always normalize to the same total so the bar visually sums to 100%.
+  const passedShare = totalTests > 0 ? (totalPassed - totalFlaky) / totalTests * 100 : 0;
+  const flakyShare = totalTests > 0 ? totalFlaky / totalTests * 100 : 0;
+  const failedShare = totalTests > 0 ? totalFailed / totalTests * 100 : 0;
+
+  const headlineText = totalFailed > 0
+    ? `${totalFailed} failed`
+    : totalFlaky > 0
+      ? `${totalPassed} passed · ${totalFlaky} flaky`
+      : `All ${totalPassed} passed`;
+
   const summaryCard = `<section class="summary ${overallClass}">
-    <div class="summary-main">
-      <div class="summary-headline">
-        ${totalFailed > 0
-          ? `<span class="summary-big summary-big-fail">${totalFailed}</span><span class="summary-big-label">failed</span>`
-          : `<span class="summary-big summary-big-pass">${totalPassed}</span><span class="summary-big-label">passed</span>`}
+    <header class="summary-head">
+      <div class="summary-status">
+        <span class="summary-glyph">${totalFailed > 0 ? "✕" : "✓"}</span>
+        <span class="summary-headline">${headlineText}</span>
+        <span class="summary-aside">${totalTests} tests · ${groups.size} hubs · ${totalSeconds}s</span>
       </div>
-      <dl class="summary-meta">
-        <div><dt>Total</dt><dd>${totalTests}</dd></div>
-        <div><dt>Passed</dt><dd class="meta-pass">${totalPassed}</dd></div>
-        <div><dt>Failed</dt><dd class="meta-fail">${totalFailed}</dd></div>
-        <div><dt>Flaky</dt><dd class="meta-flaky">${totalFlaky}</dd></div>
-        <div><dt>Duration</dt><dd>${totalSeconds}s</dd></div>
-        <div><dt>Hubs</dt><dd>${groups.size}</dd></div>
-      </dl>
-    </div>
+      <div class="summary-bar" role="img" aria-label="${totalPassed} passed, ${totalFlaky} flaky, ${totalFailed} failed of ${totalTests}">
+        ${passedShare > 0 ? `<span class="bar-pass" style="width:${passedShare.toFixed(2)}%"></span>` : ""}
+        ${flakyShare > 0 ? `<span class="bar-flaky" style="width:${flakyShare.toFixed(2)}%"></span>` : ""}
+        ${failedShare > 0 ? `<span class="bar-fail" style="width:${failedShare.toFixed(2)}%"></span>` : ""}
+      </div>
+    </header>
     <div class="hub-grid">${hubGrid}</div>
     ${failedListHtml}
   </section>`;
