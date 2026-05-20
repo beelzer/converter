@@ -1,7 +1,8 @@
 @import "tailwindcss";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
 
 @theme {
-  --font-mono: "JetBrains Mono", "Geist Mono", "IBM Plex Mono", "Cascadia Code", "SF Mono", Menlo, Monaco, Consolas, ui-monospace, monospace;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", "Geist Mono", "IBM Plex Mono", "Cascadia Code", "SF Mono", Menlo, Monaco, Consolas, ui-monospace, monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
 
   --color-bg: #0a0a0a;
@@ -16,6 +17,7 @@
   --color-accent-hover: #bef264;
   --color-accent-dim: #65a30d;
   --color-danger: #f87171;
+  --color-warning: #fbbf24;
 }
 
 @layer base {

@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import jetbrainsMonoLatin from "@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2?url";
 import {
   SITE_URL,
   SITE_NAME,
@@ -38,6 +39,14 @@ const schemaArray = schema ? (Array.isArray(schema) ? schema : [schema]) : [];
     {noindex && <meta name="robots" content="noindex" />}
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <link
+      rel="preload"
+      href={jetbrainsMonoLatin}
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
 
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonical} />
