@@ -108,6 +108,17 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+      # Visual e2e report artifacts. Populated during `test:e2e` by the
+      # report() helper in e2e/fixtures.ts. Download + `npm run test:report`
+      # locally to view the HTML report.
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-artifacts
+          path: test-artifacts/
+          retention-days: 7
+          if-no-files-found: ignore
+
   lighthouse:
     name: Lighthouse
     needs: [build]
