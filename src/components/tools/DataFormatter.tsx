@@ -59,9 +59,9 @@ export default function DataFormatter() {
   return (
     <div class="w-full">
       <div class="flex items-center justify-between mb-2">
-        <label class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)]">
+        <span class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)]">
           Input
-        </label>
+        </span>
         <select
           aria-label="Format"
           value={format}

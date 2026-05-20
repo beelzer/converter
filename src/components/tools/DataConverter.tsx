@@ -56,9 +56,9 @@ export default function DataConverter() {
     <div class="w-full grid gap-4 lg:grid-cols-2">
       <div>
         <div class="flex items-center justify-between mb-2">
-          <label class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)]">
+          <span class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)]">
             Input
-          </label>
+          </span>
           <FormatSelect value={from} onChange={setFrom} disabled={busy} id="from" />
         </div>
         <DataInput
@@ -72,9 +72,9 @@ export default function DataConverter() {
 
       <div>
         <div class="flex items-center justify-between mb-2">
-          <label class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)]">
+          <span class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)]">
             Output
-          </label>
+          </span>
           <FormatSelect value={to} onChange={setTo} disabled={busy} id="to" />
         </div>
         <OutputPanel

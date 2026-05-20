@@ -99,9 +99,9 @@ export default function DocMarkdown() {
           />
         </div>
         <div>
-          <label class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-2 block">
+          <span class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-2 block">
             Preview
-          </label>
+          </span>
           <iframe
             srcdoc={buildPreviewSrcDoc(html)}
             sandbox=""
