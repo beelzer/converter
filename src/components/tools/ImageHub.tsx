@@ -5,8 +5,9 @@ import ImageCompressor from "./ImageCompressor";
 import FaviconGenerator from "./FaviconGenerator";
 import ExifStripper from "./ExifStripper";
 import SvgRasterizer from "./SvgRasterizer";
+import ImageAscii from "./ImageAscii";
 
-type Mode = "convert" | "resize" | "compress" | "favicon" | "exif" | "svg";
+type Mode = "convert" | "resize" | "compress" | "favicon" | "exif" | "svg" | "ascii";
 
 const MODES: ModeSpec<Mode>[] = [
   {
@@ -41,6 +42,12 @@ const MODES: ModeSpec<Mode>[] = [
     label: "SVG → Raster",
     blurb: "Rasterize an SVG into PNG, JPG or WebP at any width.",
   },
+  {
+    id: "ascii",
+    label: "ASCII art",
+    blurb:
+      "Convert an image to ASCII / Unicode block / braille art. Live preview, monochrome or 24-bit color, copy as text / HTML / ANSI, or download as PNG.",
+  },
 ];
 
 export default function ImageHub() {
@@ -56,6 +63,7 @@ export default function ImageHub() {
         favicon: <FaviconGenerator />,
         exif: <ExifStripper />,
         svg: <SvgRasterizer />,
+        ascii: <ImageAscii />,
       }}
     />
   );

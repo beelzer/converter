@@ -2,17 +2,17 @@
 import HubPageLayout from "../components/HubPageLayout.astro";
 import ImageHub from "../components/tools/ImageHub.tsx";
 
-const title = "Image tools — convert, resize, compress, favicon, EXIF | tools.dcln.me";
+const title = "Image tools — convert, resize, compress, favicon, EXIF, ASCII | tools.dcln.me";
 const description =
-  "All-in-one image toolkit that runs entirely in your browser. Convert between JPG, PNG, WebP, AVIF, HEIC and more. Resize, compress, strip EXIF, build favicons, rasterize SVG. Your images are never uploaded.";
+  "All-in-one image toolkit that runs entirely in your browser. Convert between JPG, PNG, WebP, AVIF, HEIC and more. Resize, compress, strip EXIF, build favicons, rasterize SVG, generate ASCII / braille art. Your images are never uploaded.";
 
 const lead =
-  "Convert between formats, resize, compress, strip EXIF, build favicons, or rasterize SVG — all in your browser. Files never leave your device.";
+  "Convert between formats, resize, compress, strip EXIF, build favicons, rasterize SVG, or render as ASCII / braille art — all in your browser. Files never leave your device.";
 
 const howToSteps = [
   {
     name: "Pick what you want to do",
-    text: "Choose a mode from the tab bar: convert, resize, compress, favicon, strip EXIF, or SVG to raster.",
+    text: "Choose a mode from the tab bar: convert, resize, compress, favicon, strip EXIF, SVG to raster, or ASCII art.",
   },
   {
     name: "Add your image(s)",
@@ -27,7 +27,7 @@ const howToSteps = [
 const howToBlocks = [
   {
     title: "Pick a mode.",
-    body: "The tab bar lists six operations: convert, resize, compress, favicon bundle, EXIF strip, SVG to raster.",
+    body: "The tab bar lists seven operations: convert, resize, compress, favicon bundle, EXIF strip, SVG to raster, ASCII art.",
   },
   {
     title: "Add your image(s).",
@@ -63,6 +63,14 @@ const faq = [
   {
     q: "Does it work offline?",
     a: "Yes, after the page has loaded once and you've used each mode at least once (which fetches its WASM bundle). After that, the toolkit keeps working without an internet connection.",
+  },
+  {
+    q: "What's the difference between ASCII art and braille mode?",
+    a: "ASCII gradient/dense/blocks render one character per source pixel (after rescaling), mapping luminance to a character ramp. Braille mode is higher-resolution: each character cell encodes 8 sub-pixels (2 wide × 4 tall) via Unicode braille patterns (U+2800–U+28FF), so a 100-character-wide braille rendering carries the detail of a 200×400 pixel image while still being a copy-pasteable text block.",
+  },
+  {
+    q: "Why does ASCII art look stretched in some places?",
+    a: "Monospace characters are roughly twice as tall as they are wide, so we sample half the vertical pixel density to compensate. If your terminal or chosen monospace font has a different cell aspect ratio, the rendering may look slightly stretched there — try the PNG export instead, which renders at the same font we used for sampling.",
   },
 ];
 ---
