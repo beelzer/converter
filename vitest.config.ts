@@ -22,6 +22,9 @@ export default defineConfig({
         "src/lib/**/*.worker.ts",
         "src/lib/**/*.test.ts",
         "src/lib/**/*.spec.ts",
+        // Shared test helpers / fixtures (not picked up by the include glob,
+        // but explicit excludes are clearer than relying on naming).
+        "src/lib/**/__fixtures.ts",
         // Worker-bound or DOM-render entry points that wrap thin native API
         // calls. They exercise via e2e, not unit tests.
         "src/lib/util/clipboard.ts",
