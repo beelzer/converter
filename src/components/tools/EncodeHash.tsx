@@ -15,24 +15,30 @@ export default function EncodeHash() {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    setResults({});
     setError(null);
-    if (source === "text" && text === "") return;
-    if (source === "file" && !fileBytes) return;
+    if (source === "text" && text === "") {
+      setResults({});
+      return;
+    }
+    if (source === "file" && !fileBytes) {
+      setResults({});
+      return;
+    }
     let cancelled = false;
     const run = async () => {
       setBusy(true);
       try {
-        const out: Partial<Record<HashAlgorithm, string>> = {};
-        for (const algorithm of HASH_ALGORITHMS) {
-          const hex =
-            source === "text"
-              ? await hashText(text, algorithm)
-              : await hashBytes(fileBytes!, algorithm);
-          if (cancelled) return;
-          out[algorithm] = hex;
-          setResults({ ...out });
-        }
+        const entries = await Promise.all(
+          HASH_ALGORITHMS.map(async (algorithm) => {
+            const hex =
+              source === "text"
+                ? await hashText(text, algorithm)
+                : await hashBytes(fileBytes!, algorithm);
+            return [algorithm, hex] as const;
+          })
+        );
+        if (cancelled) return;
+        setResults(Object.fromEntries(entries));
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : String(err));
