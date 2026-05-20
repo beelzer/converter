@@ -1,0 +1,96 @@
+---
+import HubPageLayout from "../components/HubPageLayout.astro";
+import DrawingHub from "../components/tools/DrawingHub.tsx";
+
+const title =
+  "Convert DWG, DXF and SVG to PDF in your browser — no upload (beta) | tools.dcln.me";
+const description =
+  "Convert AutoCAD DWG, DXF, and SVG drawings to vector PDF locally in your browser. Powered by libredwg (WebAssembly) and jsPDF. CAD files never leave your device — no upload, no account. Currently in beta: from-scratch renderer with known fidelity gaps.";
+
+const lead =
+  "Convert DWG, DXF, and SVG drawings to vector PDF locally. Parsing runs in WebAssembly on your machine — your drawings never touch our servers.";
+
+const faq = [
+  {
+    q: "Will my drawing leave my computer?",
+    a: "No. The DWG / DXF parser is a WebAssembly build of libredwg that runs inside your browser tab. The PDF is generated on the same tab via jsPDF. Open the network panel while you convert — you'll see one-time downloads of the parser and the PDF library, then nothing else.",
+  },
+  {
+    q: "Which AutoCAD versions are supported?",
+    a: "libredwg supports DWG files from AutoCAD R14 through 2018 well, with partial support for the 2024 and 2025 formats. DXF support spans the same range. If your file fails to open, re-saving as DXF from AutoCAD usually resolves it.",
+  },
+  {
+    q: "Why is the parser so big?",
+    a: "libredwg is a several-megabyte WebAssembly module. The whole point of supporting a proprietary format client-side is shipping the parser, so we lazy-load it the moment you pick a file and never sooner. SVG-to-PDF conversion doesn't need the WASM at all.",
+  },
+  {
+    q: "Why are my dimensions or hatches missing?",
+    a: "The current renderer is libredwg's built-in SVG converter. It covers lines, circles, arcs, ellipses, polylines, splines, text, MTEXT, dimensions, and block inserts, but not yet hatches or wipeouts. We're tracking renderer fidelity issues and will swap in a more complete renderer as the gaps become quantifiable.",
+  },
+  {
+    q: "Can I convert DWG without AutoCAD installed?",
+    a: "Yes — that's the point of this tool. libredwg is an open-source reverse-engineered reader of the DWG format. You don't need AutoCAD, BricsCAD, or any other proprietary software installed. Just drop the file.",
+  },
+  {
+    q: "Is there a file size limit?",
+    a: "We don't enforce one but your browser does. Tabs typically tolerate drawings up to ~50 MB cleanly; above that you may see slow parses or out-of-memory errors, especially on mobile. For very large drawings we recommend a desktop browser.",
+  },
+  {
+    q: "What about DGN, STEP, IGES, or 3D solids?",
+    a: "Not in this version. DGN has no usable JavaScript parser. STEP / IGES / STL are 3D-CAD formats that would warrant their own product. DWG files containing 3D solids will open, but the renderer will only emit the 2D entities.",
+  },
+  {
+    q: "What license is the parser under, and what does that mean for me?",
+    a: "libredwg is GPL-3.0 — its WebAssembly module is the GPL part of the page. The rest of this site is MIT. The combination is fine for you: nothing about visiting a webpage or downloading a PDF makes your own files subject to the GPL. If you fork this tool's source code, the drawing converter section would inherit the GPL obligation; everything else stays MIT. Full disclosure lives in THIRD_PARTY_LICENSES.md in our repo.",
+  },
+  {
+    q: "Why is this free?",
+    a: "No ads, no upsell, no account funnel — it's an open-source side project. Source is on GitHub. If you'd like a feature, open an issue.",
+  },
+];
+---
+
+<HubPageLayout
+  title={title}
+  description={description}
+  slug="drawing"
+  label="Drawing"
+  hubHeading="CAD drawing tools."
+  lead={lead}
+  faq={faq}
+>
+  <div
+    role="note"
+    aria-label="Beta tool notice"
+    class="mb-6 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 font-mono text-xs text-[var(--color-fg-muted)] leading-relaxed"
+  >
+    <p>
+      <span class="text-[var(--color-fg)] font-semibold uppercase tracking-widest text-[10px]">
+        Beta
+      </span>
+      <span class="ml-2">
+        — this tool is incomplete. It parses DWG / DXF reliably and renders most
+        geometry, text, and dimensions, but visual output may differ from
+        AutoCAD's plot in noticeable ways. Use it for quick previews and rough
+        conversions; cross-check important output against a desktop CAD app or
+        a reference viewer like
+        <a
+          href="https://mlightcad.github.io/cad-viewer/"
+          rel="noopener noreferrer"
+          target="_blank"
+          class="text-[var(--color-accent)] hover:underline"
+        >
+          mlightcad
+        </a>
+        before relying on it.
+      </span>
+    </p>
+    <p class="mt-2">
+      <span class="text-[var(--color-fg)]">Known gaps:</span>
+      hatch patterns (rendered as best-effort tiles), lineweight fidelity
+      (uniform stroke), some entity types (XLINE / RAY / 3DFACE / TOLERANCE /
+      MLINE / MLEADER) silently skipped, very large drawings may be slow.
+    </p>
+  </div>
+  <DrawingHub client:load />
+</HubPageLayout>

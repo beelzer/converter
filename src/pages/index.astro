@@ -53,9 +53,18 @@ const schema = {
               <h3 class="font-mono text-base font-semibold text-[var(--color-fg)]">
                 {tool.name}
               </h3>
-              <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-accent)]">
-                live
-              </span>
+              {tool.status === "beta" ? (
+                <span
+                  class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-fg-muted)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-sm"
+                  title="Known fidelity gaps — see the page for details"
+                >
+                  beta
+                </span>
+              ) : (
+                <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-accent)]">
+                  live
+                </span>
+              )}
             </div>
             <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
               {tool.longBlurb}

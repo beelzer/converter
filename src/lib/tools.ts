@@ -8,6 +8,11 @@ export interface ToolEntry {
   shortBlurb: string;
   // Multi-sentence card description for the homepage grid.
   longBlurb: string;
+  // Optional lifecycle status. Defaults to "live" when omitted. "beta" means
+  // the tool ships but is known to have visual or fidelity gaps; the site
+  // surfaces this on cards + a banner on the tool page so users aren't
+  // surprised when output disagrees with reference renders.
+  status?: "live" | "beta";
 }
 
 export const TOOLS: readonly ToolEntry[] = [
@@ -73,6 +78,14 @@ export const TOOLS: readonly ToolEntry[] = [
     shortBlurb: "Beautify or minify JS, TS, CSS, HTML, JSON, SQL and more",
     longBlurb:
       "Beautify and minify JavaScript, TypeScript, CSS, HTML, JSON, SCSS, Markdown, YAML, GraphQL, Vue, SQL.",
+  },
+  {
+    slug: "drawing",
+    name: "Drawing",
+    shortBlurb: "DWG, DXF, SVG → PDF (beta)",
+    longBlurb:
+      "Convert AutoCAD DWG, DXF and SVG drawings to vector PDF in your browser. Beta: from-scratch renderer covers most geometry, text and dimensions, but hatch patterns, lineweight fidelity and a few entity types are still rough.",
+    status: "beta",
   },
 ];
 
