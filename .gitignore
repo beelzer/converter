@@ -32,6 +32,9 @@ test-artifacts/
 
 # vitest coverage output (regenerated locally via `npm run test:coverage`)
 coverage/
+# vitest browser-mode failure screenshots + attachments (regenerated per run)
+**/__screenshots__/
+.vitest-attachments/
 
 # macOS-specific files
 .DS_Store

@@ -55,6 +55,26 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # Vitest's browser project drives real Chromium via Playwright. The e2e
+      # job has its own playwright-install step; we duplicate here so unit-test
+      # can run independently when needed.
+      - name: Get Playwright version
+        id: pw-version
+        run: echo "version=$(npm ls @playwright/test --json | jq -r '.dependencies["@playwright/test"].version')" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.pw-version.outputs.version }}
+
+      - run: npx playwright install chromium --with-deps
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - run: npx playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
       - run: npm run test:coverage
 
       - name: Upload coverage to Codecov
