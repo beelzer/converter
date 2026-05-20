@@ -43,9 +43,33 @@ jobs:
       - run: npm ci
       - run: npm run check
 
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage/lcov.info
+          flags: unit
+          # Public repos can upload tokenless, but adding the token keeps us
+          # under per-repo rate limits and unlocks PR status checks.
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
   build:
     name: Build
-    needs: [lint, typecheck]
+    needs: [lint, typecheck, unit-test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

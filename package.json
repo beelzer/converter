@@ -15,6 +15,9 @@
     "astro": "astro",
     "check": "astro check",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:fixtures": "node scripts/build-fixtures.mjs",
     "test:report": "node scripts/build-test-report.mjs",
@@ -66,18 +69,22 @@
     "@commitlint/cli": "^21.0.1",
     "@commitlint/config-conventional": "^21.0.1",
     "@playwright/test": "^1.60.0",
+    "@testing-library/preact": "^3.2.4",
     "@types/js-yaml": "^4.0.9",
     "@types/papaparse": "^5.5.2",
     "@types/pngjs": "^6.0.5",
     "@types/turndown": "^5.0.6",
     "@typescript-eslint/eslint-plugin": "^8.59.3",
     "@typescript-eslint/parser": "^8.59.3",
+    "@vitest/coverage-v8": "^4.1.7",
     "diff": "^9.0.0",
     "eslint": "^9.39.4",
     "eslint-plugin-astro": "^1.7.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "highlight.js": "^11.11.1",
+    "jsdom": "^29.1.1",
     "pngjs": "^7.0.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
   }
 }

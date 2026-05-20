@@ -1,0 +1,44 @@
+# Codecov configuration. Lives at the repo root so codecov.io picks it up.
+# Docs: https://docs.codecov.com/docs/codecovyml-reference
+
+coverage:
+  precision: 2
+  round: down
+  range: "60...90"
+
+  status:
+    # Whole-project status: don't let a PR drop overall coverage by more than 1%.
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        informational: false
+    # Patch status: cover at least 70% of the lines a PR touches.
+    patch:
+      default:
+        target: 70%
+        threshold: 5%
+        informational: false
+
+# We don't need a comment on every PR — Codecov already adds a status check.
+# Flip `behaviour` to "default" if you want the full bot comment back.
+comment:
+  layout: "reach, diff, flags, files"
+  behaviour: default
+  require_changes: true
+
+# Files / paths Codecov should not track. Mirrors the exclude list in
+# vitest.config.ts so the dashboard doesn't surface "0% covered" for stuff we
+# deliberately don't unit-test (workers, DOM-bound encoders, e2e fixtures).
+ignore:
+  - "src/**/*.worker.ts"
+  - "src/**/*.test.ts"
+  - "src/**/*.spec.ts"
+  - "src/components/**"
+  - "src/pages/**"
+  - "src/icons/**"
+  - "src/styles/**"
+  - "e2e/**"
+  - "scripts/**"
+  - "dist/**"
+  - "src/lib/util/clipboard.ts"

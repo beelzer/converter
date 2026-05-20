@@ -1,5 +1,8 @@
 # tools
 
+[![CI](https://github.com/beelzer/tools/actions/workflows/ci.yml/badge.svg)](https://github.com/beelzer/tools/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/beelzer/tools/branch/main/graph/badge.svg)](https://codecov.io/gh/beelzer/tools)
+
 Free file tools that run entirely in your browser.
 Live at **[tools.dcln.me](https://tools.dcln.me)**.
 

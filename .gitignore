@@ -30,6 +30,9 @@ test-artifacts/
 # Lighthouse CI (local runs only — CI publishes to temporary-public-storage)
 .lighthouseci/
 
+# vitest coverage output (regenerated locally via `npm run test:coverage`)
+coverage/
+
 # macOS-specific files
 .DS_Store
 
