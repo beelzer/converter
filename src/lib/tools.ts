@@ -82,9 +82,9 @@ export const TOOLS: readonly ToolEntry[] = [
   {
     slug: "drawing",
     name: "Drawing",
-    shortBlurb: "DWG, DXF, SVG → PDF (beta)",
+    shortBlurb: "DWG, DXF, SVG → PDF",
     longBlurb:
-      "Convert AutoCAD DWG, DXF and SVG drawings to vector PDF in your browser. Beta: from-scratch renderer covers most geometry, text and dimensions, but hatch patterns, lineweight fidelity and a few entity types are still rough.",
+      "Convert AutoCAD DWG, DXF and SVG drawings to vector PDF, SVG, or PNG. Extract DXF from DWG.",
     status: "beta",
   },
 ];

@@ -3,6 +3,18 @@ import ToolLayout from "../components/ToolLayout.astro";
 import { TOOLS } from "../lib/tools";
 import { SITE_URL, SITE_NAME } from "../lib/site";
 
+const iconModules = import.meta.glob<string>("../icons/tools/*.svg", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+const iconBySlug: Record<string, string> = Object.fromEntries(
+  Object.entries(iconModules).map(([path, svg]) => [
+    path.split("/").pop()!.replace(/\.svg$/, ""),
+    svg,
+  ])
+);
+
 const schema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
@@ -19,9 +31,6 @@ const schema = {
   schema={schema}
 >
   <section class="mx-auto max-w-5xl px-6 pt-16 pb-12 sm:pt-24 sm:pb-16">
-    <p class="font-mono text-xs text-[var(--color-fg-dim)] mb-4 uppercase tracking-widest">
-      <span class="text-[var(--color-accent)]">●</span> live
-    </p>
     <h1 class="font-mono text-3xl sm:text-5xl font-semibold leading-tight">
       File tools that run in <span class="text-[var(--color-accent)]">your browser</span>.
     </h1>
@@ -29,13 +38,6 @@ const schema = {
       No uploads. No accounts. No ads. No tracking. Open source.
       Every tool runs entirely on your device — your files never touch a server.
     </p>
-
-    <div class="mt-8 flex flex-wrap items-center gap-3 text-xs font-mono text-[var(--color-fg-muted)]">
-      <span class="px-2 py-1 border border-[var(--color-border)] rounded-md">no upload</span>
-      <span class="px-2 py-1 border border-[var(--color-border)] rounded-md">no signup</span>
-      <span class="px-2 py-1 border border-[var(--color-border)] rounded-md">no cookies</span>
-      <span class="px-2 py-1 border border-[var(--color-border)] rounded-md">MIT licensed</span>
-    </div>
   </section>
 
   <section class="mx-auto max-w-5xl px-6 pb-20" aria-labelledby="tools-heading">
@@ -47,29 +49,32 @@ const schema = {
         <li>
           <a
             href={`/${tool.slug}`}
-            class="group block p-5 border border-[var(--color-border)] rounded-md bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-2)] transition-colors"
+            class="group block p-5 border border-[var(--color-border)] rounded-md bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-2)] hover:no-underline transition-colors"
           >
-            <div class="flex items-baseline justify-between mb-2">
-              <h3 class="font-mono text-base font-semibold text-[var(--color-fg)]">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-mono text-base font-semibold text-[var(--color-fg)] inline-flex items-center gap-2.5">
+                {iconBySlug[tool.slug] && (
+                  <span
+                    class="tool-icon inline-block shrink-0"
+                    aria-hidden="true"
+                    set:html={iconBySlug[tool.slug]}
+                  />
+                )}
                 {tool.name}
               </h3>
-              {tool.status === "beta" ? (
+              {tool.status === "beta" && (
                 <span
-                  class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-fg-muted)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-sm"
+                  class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-warning)] border border-[var(--color-warning)]/40 px-1.5 py-0.5 rounded-sm"
                   title="Known fidelity gaps — see the page for details"
                 >
                   beta
-                </span>
-              ) : (
-                <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--color-accent)]">
-                  live
                 </span>
               )}
             </div>
             <p class="text-sm text-[var(--color-fg-muted)] leading-relaxed">
               {tool.longBlurb}
             </p>
-            <p class="mt-3 font-mono text-xs text-[var(--color-fg-dim)] group-hover:text-[var(--color-accent)]">
+            <p class="mt-3 font-mono text-xs text-[var(--color-fg-dim)] group-hover:text-[var(--color-accent)] group-hover:underline underline-offset-[0.2em]">
               open →
             </p>
           </a>
@@ -78,32 +83,12 @@ const schema = {
     </ul>
   </section>
 
-  <section class="mx-auto max-w-5xl px-6 pb-24" aria-labelledby="how-heading">
-    <h2 id="how-heading" class="font-mono text-sm uppercase tracking-widest text-[var(--color-fg-dim)] mb-6">
-      How this site works
-    </h2>
-    <div class="grid gap-6 sm:grid-cols-3 text-sm text-[var(--color-fg-muted)]">
-      <div>
-        <p class="font-mono text-[var(--color-accent)] text-xs mb-2">01</p>
-        <h3 class="font-mono text-base text-[var(--color-fg)] mb-2">Pick a tool.</h3>
-        <p class="leading-relaxed">
-          Each tool lives at its own URL. Bookmark the ones you use.
-        </p>
-      </div>
-      <div>
-        <p class="font-mono text-[var(--color-accent)] text-xs mb-2">02</p>
-        <h3 class="font-mono text-base text-[var(--color-fg)] mb-2">Pick your files.</h3>
-        <p class="leading-relaxed">
-          Drag and drop or click to choose. Files stay on your device the whole time.
-        </p>
-      </div>
-      <div>
-        <p class="font-mono text-[var(--color-accent)] text-xs mb-2">03</p>
-        <h3 class="font-mono text-base text-[var(--color-fg)] mb-2">Download the result.</h3>
-        <p class="leading-relaxed">
-          Work happens in a background thread in your browser. You get a file back. That&rsquo;s it.
-        </p>
-      </div>
-    </div>
-  </section>
 </ToolLayout>
+
+<style is:global>
+  .tool-icon svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    display: block;
+  }
+</style>
