@@ -1200,6 +1200,121 @@ main {
   max-width: 1600px;
 }
 section { padding-top: 0.5rem; }
+.summary {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.75rem;
+  display: grid;
+  gap: 1.25rem;
+}
+.summary.summary-passed { border-color: rgba(63, 185, 80, 0.45); }
+.summary.summary-flaky  { border-color: rgba(210, 153, 34, 0.45); }
+.summary.summary-failed { border-color: rgba(248, 81, 73, 0.55); background: linear-gradient(to bottom, rgba(248, 81, 73, 0.06), var(--surface) 50%); }
+.summary-main {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.summary-headline {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding-right: 1.5rem;
+  border-right: 1px solid var(--border);
+}
+.summary-big {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 2.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.summary-big-pass { color: #3fb950; }
+.summary-big-fail { color: #f85149; }
+.summary-big-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--fg-dim);
+}
+.summary-meta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, max-content));
+  gap: 0 1.5rem;
+  row-gap: 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.85rem;
+}
+.summary-meta > div { display: grid; }
+.summary-meta dt {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.65rem;
+  color: var(--fg-dim);
+}
+.summary-meta dd { margin: 0; color: var(--fg); font-weight: 600; }
+.summary-meta .meta-pass { color: #3fb950; }
+.summary-meta .meta-fail { color: #f85149; }
+.summary-meta .meta-flaky { color: #d29922; }
+
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1.25rem;
+}
+.hub-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-decoration: none;
+}
+.hub-tile.hub-pass { border-left: 3px solid #3fb950; }
+.hub-tile.hub-fail { border-left: 3px solid #f85149; }
+.hub-tile:hover { background: rgba(255, 255, 255, 0.03); }
+.hub-name { font-size: 0.8rem; color: var(--fg); }
+.hub-numbers { font-size: 0.7rem; }
+.hub-pass-count { color: #3fb950; }
+.hub-fail-count { color: #f85149; }
+.hub-total { color: var(--fg-dim); margin-left: 0.25rem; }
+
+.summary-failed-list {
+  border-top: 1px solid var(--border);
+  padding-top: 1.1rem;
+}
+.summary-failed-list h3 {
+  margin: 0 0 0.6rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.75rem;
+  color: #f85149;
+}
+.summary-failed-list ul { margin: 0; padding-left: 1rem; }
+.summary-failed-list li { margin-bottom: 0.55rem; }
+.summary-failed-list a { color: var(--fg); text-decoration: none; }
+.summary-failed-list a:hover { color: var(--accent); }
+.failed-spec {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--accent);
+}
+.failed-error {
+  margin-top: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.72rem;
+  color: var(--fg-dim);
+}
 section + section { margin-top: 2.25rem; }
 h2 {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -1681,6 +1796,82 @@ function renderHtml(groups) {
     })
     .join("");
 
+  // Aggregate per-hub stats + a list of failed tests for the summary card.
+  const failedList = [];
+  let totalDuration = 0;
+  let totalFlaky = 0;
+  for (const [spec, entries] of groups) {
+    for (const e of entries) {
+      const meta = e.meta;
+      if (typeof meta.duration === "number") totalDuration += meta.duration;
+      if (meta.status === "passed" && (meta.retries ?? 0) > 0) totalFlaky++;
+      if (meta.status && meta.status !== "passed") {
+        failedList.push({
+          spec,
+          slug: e.slug,
+          title: meta.title,
+          status: meta.status,
+          firstError: meta.errors?.[0],
+        });
+      }
+    }
+  }
+  const totalSeconds = (totalDuration / 1000).toFixed(2);
+  const overallClass =
+    totalFailed > 0 ? "summary-failed" : totalFlaky > 0 ? "summary-flaky" : "summary-passed";
+
+  const hubGrid = sortedSpecs
+    .map((s) => {
+      const stats = specStats.get(s);
+      const cls = stats.failed > 0 ? "hub-fail" : "hub-pass";
+      return `<a class="hub-tile ${cls}" href="#${escapeHtml(s)}">
+        <span class="hub-name">${escapeHtml(s)}</span>
+        <span class="hub-numbers">
+          ${stats.failed > 0
+            ? `<span class="hub-fail-count">${stats.failed} failed</span>`
+            : `<span class="hub-pass-count">${stats.passed} passed</span>`}
+          <span class="hub-total">/ ${stats.total}</span>
+        </span>
+      </a>`;
+    })
+    .join("");
+
+  const failedListHtml = failedList.length > 0
+    ? `<div class="summary-failed-list">
+        <h3>Failed tests</h3>
+        <ul>
+          ${failedList
+            .map(
+              (f) =>
+                `<li><a href="#${escapeHtml(`${f.spec}-${f.slug}`)}"><span class="failed-spec">${escapeHtml(f.spec)}</span> · ${escapeHtml(f.title)}</a>${
+                  f.firstError ? `<div class="failed-error">${escapeHtml(String(f.firstError))}</div>` : ""
+                }</li>`
+            )
+            .join("")}
+        </ul>
+      </div>`
+    : "";
+
+  const summaryCard = `<section class="summary ${overallClass}">
+    <div class="summary-main">
+      <div class="summary-headline">
+        ${totalFailed > 0
+          ? `<span class="summary-big summary-big-fail">${totalFailed}</span><span class="summary-big-label">failed</span>`
+          : `<span class="summary-big summary-big-pass">${totalPassed}</span><span class="summary-big-label">passed</span>`}
+      </div>
+      <dl class="summary-meta">
+        <div><dt>Total</dt><dd>${totalTests}</dd></div>
+        <div><dt>Passed</dt><dd class="meta-pass">${totalPassed}</dd></div>
+        <div><dt>Failed</dt><dd class="meta-fail">${totalFailed}</dd></div>
+        <div><dt>Flaky</dt><dd class="meta-flaky">${totalFlaky}</dd></div>
+        <div><dt>Duration</dt><dd>${totalSeconds}s</dd></div>
+        <div><dt>Hubs</dt><dd>${groups.size}</dd></div>
+      </dl>
+    </div>
+    <div class="hub-grid">${hubGrid}</div>
+    ${failedListHtml}
+  </section>`;
+
   const sections = sortedSpecs.map((s) => renderSection(s, groups.get(s))).join("\n");
 
   // Active-section tracking via IntersectionObserver. Tiny vanilla JS — no
@@ -1732,7 +1923,7 @@ function renderHtml(groups) {
     </p>
     <nav>${navLinks}</nav>
   </aside>
-  <main>${sections}</main>
+  <main>${summaryCard}${sections}</main>
   <script>${activeScript}</script>
 </body>
 </html>
